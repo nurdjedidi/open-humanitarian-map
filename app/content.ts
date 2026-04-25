@@ -1,8 +1,8 @@
 export const landingConfig = {
   productName: "OHM",
   location: "Sénégal",
-  demoUrl: "http://localhost:5173",
-  canonicalUrl: "https://west-africa-humanitarian-map.nurdjedidi.com",
+  demoUrl: "https://openhumanitarianmap.nurdjedidi.com",
+  canonicalUrl: "https://openhumanitarianmap.nurdjedidi.com",
   contact: {
     email: "mailto:djedidinur@gmail.com",
     whatsapp: "https://wa.me/+33698947687",
