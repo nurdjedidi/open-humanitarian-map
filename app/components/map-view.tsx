@@ -559,15 +559,6 @@ export function MapView({
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute left-5 top-5 rounded-2xl border border-white/12 bg-[#08111a]/86 px-4 py-3 text-[#f4f0e6] shadow-[0_14px_40px_rgba(2,6,12,0.3)] backdrop-blur-md">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#e8bd78]">
-          OHM • Open Humanitarian Map
-        </div>
-        <div className="mt-1 text-sm text-[#f8f4ed]">
-          Zoom {zoom.toFixed(1)} | Score = couleur | terrain = couches OSM
-        </div>
-      </div>
-
       {detail ? (
         <div className="pointer-events-none absolute bottom-4 left-4 right-4 max-w-[340px] rounded-2xl border border-white/12 bg-[#08111a]/90 px-4 py-3 text-sm text-[#f4efe7] shadow-[0_14px_40px_rgba(2,6,12,0.3)] backdrop-blur-md md:left-5 md:right-auto">
           <div className="font-semibold text-[#fff5e6]">{detail.title}</div>
