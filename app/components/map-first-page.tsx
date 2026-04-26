@@ -2,7 +2,7 @@ import { useI18n } from "~/i18n/use-i18n";
 import { useState } from "react";
 
 import { combinedDataset } from "~/data/datasets";
-import { BASEMAPS, MapView, type BasemapId } from "./map-view";
+import { BASEMAPS, MapView, type BasemapId, type ViewMode } from "./map-view";
 import { FloatingControlButtons, FloatingSidePanel, type FloatingPanelId } from "./map-first/floating-controls";
 import { OverlayHeader } from "./map-first/overlay-header";
 
@@ -13,6 +13,8 @@ export function MapFirstPage() {
   const [showSettlements, setShowSettlements] = useState(false);
   const [showRoads, setShowRoads] = useState(dataset.layerDefaults.osm_roads);
   const [basemapId, setBasemapId] = useState<BasemapId>("voyager");
+  const [viewMode, setViewMode] = useState<ViewMode>("flat");
+  const [droneMode, setDroneMode] = useState(false);
   const [activePanel, setActivePanel] = useState<FloatingPanelId>(null);
 
   const basemapLabel = (id: BasemapId) => {
@@ -43,6 +45,8 @@ export function MapFirstPage() {
           showWater={showWater}
           showSettlements={showSettlements}
           basemapId={basemapId}
+          viewMode={viewMode}
+          droneMode={droneMode}
         />
       </div>
 
@@ -64,6 +68,10 @@ export function MapFirstPage() {
         setShowSettlements={setShowSettlements}
         basemapId={basemapId}
         setBasemapId={setBasemapId}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        droneMode={droneMode}
+        setDroneMode={setDroneMode}
         basemaps={BASEMAPS}
         basemapLabel={basemapLabel}
         legend={dataset.legend}

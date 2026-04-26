@@ -1,8 +1,16 @@
-import { BookOpen, Layers3, Map, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  Layers3,
+  Map,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plane,
+} from "lucide-react";
 
 import type { ResolvedLegendItem } from "~/data/datasets";
 import { useI18n } from "~/i18n/use-i18n";
-import type { BasemapId } from "../map-view";
+import type { BasemapId, ViewMode } from "../map-view";
 import { LegendItem } from "./legend";
 import { PanelSection, ToggleRow, cx } from "./ui";
 
@@ -60,6 +68,10 @@ export function FloatingSidePanel({
   setShowSettlements,
   basemapId,
   setBasemapId,
+  viewMode,
+  setViewMode,
+  droneMode,
+  setDroneMode,
   basemaps,
   basemapLabel,
   legend,
@@ -74,6 +86,10 @@ export function FloatingSidePanel({
   setShowSettlements: (value: boolean) => void;
   basemapId: BasemapId;
   setBasemapId: (value: BasemapId) => void;
+  viewMode: ViewMode;
+  setViewMode: (value: ViewMode) => void;
+  droneMode: boolean;
+  setDroneMode: (value: boolean) => void;
   basemaps: Array<{ id: BasemapId; label: string; description: string }>;
   basemapLabel: (id: BasemapId) => { label: string; description: string };
   legend: ResolvedLegendItem[];
@@ -83,8 +99,8 @@ export function FloatingSidePanel({
   if (!activePanel) return null;
 
   return (
-    <aside className="panel-scroll absolute left-[68px] top-[86px] z-30 w-[290px] max-w-[calc(100vw-92px)] overflow-y-auto md:left-[76px] md:top-[96px]">
-      <div className="rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl">
+    <aside className="absolute bottom-3 left-[68px] top-[86px] z-30 w-[290px] max-w-[calc(100vw-92px)] md:bottom-4 md:left-[76px] md:top-[96px]">
+      <div className="panel-scroll h-full overflow-y-auto rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl">
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
             {activePanel === "layers"
@@ -129,7 +145,7 @@ export function FloatingSidePanel({
 
         {activePanel === "basemap" ? (
           <PanelSection title={t("demo.basemap")}>
-            <div className="grid gap-2">
+            <div className="mb-4 grid gap-2">
               {basemaps.map((option) => {
                 const active = option.id === basemapId;
                 const localized = basemapLabel(option.id);
@@ -152,6 +168,77 @@ export function FloatingSidePanel({
                   </button>
                 );
               })}
+            </div>
+
+            <div className="border-t border-white/8 pt-4">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
+                Mode de vue
+              </div>
+              <div className="grid gap-2">
+                {[
+                  {
+                    id: "flat" as const,
+                    icon: Layers3,
+                    label: "Vue d'ensemble",
+                    description: "Lecture plane et stable à grande échelle",
+                  },
+                  {
+                    id: "urban-3d" as const,
+                    icon: Building2,
+                    label: "3D",
+                    description: "Zoom fort et bâtiments extrudés si disponibles",
+                  },
+                ].map((mode) => {
+                  const Icon = mode.icon;
+                  const active = mode.id === viewMode;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setViewMode(mode.id)}
+                      className={cx(
+                        "flex items-start gap-3 rounded-2xl border px-3 py-3 text-left transition",
+                        active
+                          ? "border-[#d98a35] bg-[#172636] text-white"
+                          : "border-white/8 bg-white/[0.03] text-[#d6e5f3] hover:bg-white/[0.08]",
+                      )}
+                    >
+                      <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <div className="font-semibold">{mode.label}</div>
+                        <div className="text-xs text-[#8ea7bb]">{mode.description}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !droneMode;
+                    setDroneMode(next);
+                    if (next) {
+                      setBasemapId("satellite");
+                    }
+                  }}
+                  className={cx(
+                    "flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition",
+                    droneMode
+                      ? "border-[#d98a35] bg-[#172636] text-white"
+                      : "border-white/8 bg-white/[0.03] text-[#d6e5f3] hover:bg-white/[0.08]",
+                  )}
+                >
+                  <Plane className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <div className="font-semibold">Drone</div>
+                    <div className="text-xs text-[#8ea7bb]">
+                      Vue inclinée et zoom rapproché. Peut se combiner avec le mode 3D.
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </PanelSection>
         ) : null}

@@ -21,6 +21,7 @@ import {
 } from "~/utils";
 
 export type BasemapId = "voyager" | "dark-matter" | "satellite";
+export type ViewMode = "flat" | "urban-3d";
 
 type SelectionDetail =
   | {
@@ -63,6 +64,8 @@ type MapViewProps = {
   showSettlements: boolean;
   showRoads: boolean;
   basemapId: BasemapId;
+  viewMode: ViewMode;
+  droneMode: boolean;
   selectedRegionId?: string | null;
   onRegionHover?: (region: RegionRecord | null) => void;
   onRegionSelect?: (region: RegionRecord | null) => void;
@@ -70,6 +73,26 @@ type MapViewProps = {
 
 const INITIAL_CENTER: [number, number] = [-14.7, 14.5];
 const INITIAL_ZOOM = 4.55;
+
+function adminFillAlpha(droneMode: boolean) {
+  return droneMode ? 52 : 146;
+}
+
+function adminBorderColor(
+  isSelected: boolean,
+  droneMode: boolean,
+): [number, number, number, number] {
+  if (isSelected) return [248, 250, 252, droneMode ? 225 : 245];
+  return droneMode ? [64, 64, 70, 110] : [56, 56, 62, 190];
+}
+
+function roadLineColor(droneMode: boolean): [number, number, number, number] {
+  return droneMode ? [88, 88, 96, 90] : [80, 80, 86, 145];
+}
+
+function osmPointAlpha(droneMode: boolean, baseAlpha: number) {
+  return droneMode ? Math.max(70, Math.round(baseAlpha * 0.55)) : baseAlpha;
+}
 
 export const BASEMAPS: Array<{
   id: BasemapId;
@@ -300,12 +323,79 @@ function tuneBasemapLabels(map: any, basemapId: BasemapId) {
   }
 }
 
+function removeBuildingsLayer(map: any) {
+  try {
+    if (map.getLayer("ohm-3d-buildings")) {
+      map.removeLayer("ohm-3d-buildings");
+    }
+  } catch {
+    // ignore cleanup errors
+  }
+}
+
+function ensureBuildingsLayer(map: any, beforeId?: string | null) {
+  removeBuildingsLayer(map);
+  const style = map?.getStyle?.();
+  const sources = style?.sources ?? {};
+  const vectorSourceIds = Object.entries(sources)
+    .filter(([, source]: any) => source?.type === "vector")
+    .map(([sourceId]) => sourceId);
+
+  for (const sourceId of vectorSourceIds) {
+    for (const sourceLayer of ["building", "buildings"]) {
+      try {
+        map.addLayer(
+          {
+            id: "ohm-3d-buildings",
+            type: "fill-extrusion",
+            source: sourceId,
+            "source-layer": sourceLayer,
+            minzoom: 14,
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                14,
+                "#b08b62",
+                17,
+                "#8f6e4d",
+              ],
+              "fill-extrusion-height": [
+                "coalesce",
+                ["get", "render_height"],
+                ["get", "height"],
+                8,
+              ],
+              "fill-extrusion-base": [
+                "coalesce",
+                ["get", "render_min_height"],
+                ["get", "min_height"],
+                0,
+              ],
+              "fill-extrusion-opacity": 0.86,
+            },
+          },
+          beforeId ?? undefined,
+        );
+        return true;
+      } catch {
+        // try next source/source-layer candidate
+      }
+    }
+  }
+
+  return false;
+}
+
 export function MapView({
   dataset,
   showWater,
   showSettlements,
   showRoads,
   basemapId,
+  viewMode,
+  droneMode,
   selectedRegionId = null,
   onRegionHover,
   onRegionSelect,
@@ -380,20 +470,27 @@ export function MapView({
         filled: true,
         lineWidthMinPixels: 1,
         getLineWidth: (feature: Feature<Geometry, GeoJsonProperties>) =>
-          feature.properties?.feature_id === selectedRegionId ? 3.6 : 1.2,
-        getLineColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
           feature.properties?.feature_id === selectedRegionId
-            ? [248, 250, 252, 245]
-            : [56, 56, 62, 190],
+            ? droneMode
+              ? 2.6
+              : 3.6
+            : droneMode
+              ? 0.9
+              : 1.2,
+        getLineColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
+          adminBorderColor(feature.properties?.feature_id === selectedRegionId, droneMode),
         getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
           tintByCountry(
-            priorityColor(feature.properties?.priority_score ?? feature.properties?.score, 146),
+            priorityColor(
+              feature.properties?.priority_score ?? feature.properties?.score,
+              adminFillAlpha(droneMode),
+            ),
             feature.properties?.country_slug ?? feature.properties?.adm0_name,
           ),
         updateTriggers: {
-          getFillColor: [selectedRegionId],
-          getLineWidth: [selectedRegionId],
-          getLineColor: [selectedRegionId],
+          getFillColor: [selectedRegionId, droneMode],
+          getLineWidth: [selectedRegionId, droneMode],
+          getLineColor: [selectedRegionId, droneMode],
         },
         beforeId: labelLayerId ?? undefined,
         autoHighlight: false,
@@ -455,9 +552,9 @@ export function MapView({
           stroked: true,
           filled: false,
           lineWidthMinPixels: 1,
-          getLineWidth: zoom >= 9 ? 2.2 : 1.3,
-          getLineColor: [80, 80, 86, 145],
-          updateTriggers: { getLineWidth: [zoom] },
+          getLineWidth: zoom >= 9 ? (droneMode ? 1.5 : 2.2) : droneMode ? 0.85 : 1.3,
+          getLineColor: roadLineColor(droneMode),
+          updateTriggers: { getLineWidth: [zoom, droneMode], getLineColor: [droneMode] },
           beforeId: labelLayerId ?? undefined,
           autoHighlight: false,
         }),
@@ -473,8 +570,8 @@ export function MapView({
           minZoom: 0,
           maxZoom: 7.15,
           getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [45, 140, 255, 200],
-          getLineColor: [255, 255, 255, 220],
+          getFillColor: [45, 140, 255, osmPointAlpha(droneMode, 200)],
+          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 220)],
           stroked: true,
           filled: true,
           radiusScale: 6,
@@ -483,6 +580,7 @@ export function MapView({
           getRadius: 70,
           beforeId: labelLayerId ?? undefined,
           parameters: { depthTest: false },
+          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
           autoHighlight: false,
           onHover: ({
             object,
@@ -516,8 +614,8 @@ export function MapView({
           pickable: true,
           minZoom: 7.15,
           getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [45, 140, 255, 220],
-          getLineColor: [255, 255, 255, 235],
+          getFillColor: [45, 140, 255, osmPointAlpha(droneMode, 220)],
+          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 235)],
           stroked: true,
           filled: true,
           radiusScale: 6.5,
@@ -526,6 +624,7 @@ export function MapView({
           getRadius: 82,
           beforeId: labelLayerId ?? undefined,
           parameters: { depthTest: false },
+          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
           autoHighlight: false,
           onHover: ({
             object,
@@ -563,8 +662,8 @@ export function MapView({
           minZoom: 0,
           maxZoom: 7.15,
           getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [35, 35, 35, 176],
-          getLineColor: [255, 255, 255, 160],
+          getFillColor: [35, 35, 35, osmPointAlpha(droneMode, 176)],
+          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 160)],
           stroked: true,
           filled: true,
           radiusScale: 6,
@@ -573,6 +672,7 @@ export function MapView({
           getRadius: 80,
           beforeId: labelLayerId ?? undefined,
           parameters: { depthTest: false },
+          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
           autoHighlight: false,
           onHover: ({
             object,
@@ -606,8 +706,8 @@ export function MapView({
           pickable: true,
           minZoom: 7.15,
           getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [35, 35, 35, 180],
-          getLineColor: [255, 255, 255, 160],
+          getFillColor: [35, 35, 35, osmPointAlpha(droneMode, 180)],
+          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 160)],
           stroked: true,
           filled: true,
           radiusScale: 7,
@@ -616,6 +716,7 @@ export function MapView({
           getRadius: 90,
           beforeId: labelLayerId ?? undefined,
           parameters: { depthTest: false },
+          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
           autoHighlight: false,
           onHover: ({
             object,
@@ -657,6 +758,7 @@ export function MapView({
     showSettlements,
     showWater,
     countryLabels,
+    droneMode,
     labelLayerId,
     t,
     waterLabel,
@@ -684,8 +786,8 @@ export function MapView({
         style: initialBasemapStyleRef.current,
         center: INITIAL_CENTER,
         zoom: INITIAL_ZOOM,
-        minZoom: 5,
-        maxZoom: 13,
+        minZoom: 3,
+        maxZoom: 19,
         pitch: 0,
       });
 
@@ -710,6 +812,11 @@ export function MapView({
           current === nextLabelLayerId ? current : nextLabelLayerId,
         );
         tuneBasemapLabels(map, basemapId);
+        if (viewMode === "urban-3d") {
+          ensureBuildingsLayer(map, nextLabelLayerId);
+        } else {
+          removeBuildingsLayer(map);
+        }
         overlay.setProps({ layers });
       };
 
@@ -763,6 +870,27 @@ export function MapView({
     basemapStyleRef.current = currentBasemap.style;
     map.setStyle(currentBasemap.style);
   }, [currentBasemap.style]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (viewMode === "urban-3d") {
+      ensureBuildingsLayer(map, labelLayerId);
+    } else {
+      removeBuildingsLayer(map);
+    }
+
+    map.easeTo({
+      pitch: droneMode ? 70 : viewMode === "urban-3d" ? 58 : 0,
+      bearing: droneMode ? -22 : viewMode === "urban-3d" ? -14 : 0,
+      zoom:
+        viewMode === "urban-3d"
+          ? Math.max(map.getZoom(), droneMode ? 15.8 : 15.2)
+          : map.getZoom(),
+      duration: 900,
+    });
+  }, [viewMode, droneMode, labelLayerId]);
 
   useEffect(() => {
     const map = mapRef.current;
