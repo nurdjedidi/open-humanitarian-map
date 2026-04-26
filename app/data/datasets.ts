@@ -91,7 +91,9 @@ export type RegionRecord = {
   ipcShareP3Plus: number | null;
 };
 
-export type SenegalDataset = {
+export type MapDataset = {
+  id: string;
+  slug: string;
   manifest: ManifestLike;
   manifestName: string;
   title: string;
@@ -103,7 +105,7 @@ export type SenegalDataset = {
   layerDefaults: Record<SupportedLayerId, boolean>;
 };
 
-const DATA_RAW_MODULES = import.meta.glob("../../data/senegal/*.{json,geojson}", {
+const DATA_RAW_MODULES = import.meta.glob("../../data/*/*.{json,geojson}", {
   eager: true,
   query: "?raw",
   import: "default",
@@ -118,6 +120,11 @@ const SUPPORTED_LAYERS: SupportedLayerId[] = [
 
 function basename(input: string): string {
   return input.replace(/\\/g, "/").split("/").pop() ?? input;
+}
+
+function parentFolder(input: string): string {
+  const parts = input.replace(/\\/g, "/").split("/");
+  return parts.at(-2) ?? "";
 }
 
 function normalizeText(input: string | null | undefined): string {
@@ -138,6 +145,26 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+function titleFromSlug(slug: string): string {
+  const known: Record<string, string> = {
+    senegal: "Sénégal",
+    gambie: "Gambie",
+    gambia: "Gambia",
+    guinee: "Guinée",
+    guinea: "Guinea",
+    guinee_bissau: "Guinée-Bissau",
+    guinea_bissau: "Guinea-Bissau",
+    sierra_leone: "Sierra Leone",
+  };
+  if (known[slug]) return known[slug];
+  const text = slug.replace(/[-_]+/g, " ").trim();
+  if (!text) return "Unknown";
+  return text
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function isFeatureCollection(value: unknown): value is FeatureCollection {
   return (
     Boolean(value) &&
@@ -150,22 +177,31 @@ function isManifest(value: unknown): value is ManifestLike {
   return (
     Boolean(value) &&
     typeof value === "object" &&
-    ("geojson" in (value as object) || "layers" in (value as object))
+    ("geojson" in (value as object) || "layers" in (value as object) || "artifacts" in (value as object))
   );
 }
 
-function fileCatalog() {
-  const catalog = new Map<string, JsonModule>();
+type CountryCatalog = {
+  slug: string;
+  files: Map<string, JsonModule>;
+};
+
+function buildCatalogByCountry() {
+  const catalog = new Map<string, CountryCatalog>();
   for (const [path, rawValue] of Object.entries(DATA_RAW_MODULES)) {
-    catalog.set(basename(path), JSON.parse(rawValue) as JsonModule);
+    const slug = parentFolder(path);
+    if (!slug) continue;
+    const entry = catalog.get(slug) ?? { slug, files: new Map<string, JsonModule>() };
+    entry.files.set(basename(path), JSON.parse(rawValue) as JsonModule);
+    catalog.set(slug, entry);
   }
   return catalog;
 }
 
-const CATALOG = fileCatalog();
+const CATALOG_BY_COUNTRY = buildCatalogByCountry();
 
-function collectManifests(): Array<{ name: string; manifest: ManifestLike }> {
-  return Array.from(CATALOG.entries())
+function collectManifests(country: CountryCatalog): Array<{ name: string; manifest: ManifestLike }> {
+  return Array.from(country.files.entries())
     .filter(([name, value]) => name.endsWith(".manifest.json") && isManifest(value))
     .map(([name, manifest]) => ({ name, manifest }));
 }
@@ -177,25 +213,24 @@ function manifestTimestamp(manifest: ManifestLike): number {
   return Number.isFinite(time) ? time : 0;
 }
 
-function pickPrimaryManifest(): { name: string; manifest: ManifestLike } {
-  const manifests = collectManifests();
+function pickPrimaryManifest(country: CountryCatalog): { name: string; manifest: ManifestLike } {
+  const manifests = collectManifests(country);
   if (!manifests.length) {
-    throw new Error("Aucun manifest Sénégal trouvé dans LP/data/senegal.");
+    throw new Error(`Aucun manifest trouvé dans LP/data/${country.slug}.`);
   }
 
   return manifests
     .slice()
     .sort((left, right) => {
-      const timeDiff =
-        manifestTimestamp(right.manifest) - manifestTimestamp(left.manifest);
+      const timeDiff = manifestTimestamp(right.manifest) - manifestTimestamp(left.manifest);
       if (timeDiff !== 0) return timeDiff;
       return right.name.localeCompare(left.name);
     })[0];
 }
 
-function resolveGeoJson(reference: string | undefined): FeatureCollection | null {
+function resolveGeoJson(country: CountryCatalog, reference: string | undefined): FeatureCollection | null {
   if (!reference) return null;
-  const direct = CATALOG.get(basename(reference));
+  const direct = country.files.get(basename(reference));
   if (direct && isFeatureCollection(direct)) {
     return direct;
   }
@@ -209,13 +244,15 @@ function decorateAdmin(admin: FeatureCollection): FeatureCollection {
       const properties = { ...(feature.properties ?? {}) };
       const id =
         asString(properties.feature_id) ||
+        asString(properties.adm3_pcode) ||
         asString(properties.adm2_pcode) ||
         asString(properties.adm1_pcode) ||
-        `${asString(properties.adm2_name || properties.adm1_name || properties.name || "region")}-${index}`;
+        `${asString(properties.adm3_name || properties.adm2_name || properties.adm1_name || properties.name || "region")}-${index}`;
 
       properties.feature_id = id;
       properties.region_name = asString(
-        properties.adm2_name ||
+        properties.adm3_name ||
+          properties.adm2_name ||
           properties.adm1_name ||
           properties.admin_name ||
           properties.name,
@@ -229,11 +266,11 @@ function decorateAdmin(admin: FeatureCollection): FeatureCollection {
   };
 }
 
-function resolveAdminGeoJson(manifest: ManifestLike): FeatureCollection {
+function resolveAdminGeoJson(country: CountryCatalog, manifest: ManifestLike): FeatureCollection {
   const artifactPath = manifest.artifacts?.admin_priority?.geojson;
-  const resolved = resolveGeoJson(artifactPath ?? manifest.geojson);
+  const resolved = resolveGeoJson(country, artifactPath ?? manifest.geojson);
   if (!resolved) {
-    throw new Error("Impossible de résoudre le GeoJSON admin du manifest Sénégal.");
+    throw new Error(`Impossible de résoudre le GeoJSON admin du manifest ${country.slug}.`);
   }
   return decorateAdmin(resolved);
 }
@@ -242,14 +279,13 @@ function canonicalLayerId(layerId: string | undefined): SupportedLayerId | null 
   if (!layerId) return null;
   if (layerId === "admin_priority") return "admin_priority";
   if (layerId === "osm_water" || layerId === "osm_context_water") return "osm_water";
-  if (layerId === "osm_settlements" || layerId === "osm_context_settlements") {
-    return "osm_settlements";
-  }
+  if (layerId === "osm_settlements" || layerId === "osm_context_settlements") return "osm_settlements";
   if (layerId === "osm_roads" || layerId === "osm_context_roads") return "osm_roads";
   return null;
 }
 
 function resolveLayers(
+  country: CountryCatalog,
   manifest: ManifestLike,
 ): Partial<Record<SupportedLayerId, FeatureCollection>> {
   const resolved: Partial<Record<SupportedLayerId, FeatureCollection>> = {};
@@ -257,7 +293,7 @@ function resolveLayers(
   for (const [artifactId, artifact] of Object.entries(manifest.artifacts ?? {})) {
     const layerId = canonicalLayerId(artifactId);
     if (!layerId || layerId === "admin_priority") continue;
-    const geojson = resolveGeoJson(artifact.geojson);
+    const geojson = resolveGeoJson(country, artifact.geojson);
     if (geojson) {
       resolved[layerId] = geojson;
     }
@@ -266,7 +302,7 @@ function resolveLayers(
   for (const layer of manifest.layers ?? []) {
     const layerId = canonicalLayerId(layer.id);
     if (!layerId || layerId === "admin_priority" || resolved[layerId]) continue;
-    const geojson = resolveGeoJson(layer.path);
+    const geojson = resolveGeoJson(country, layer.path);
     if (geojson) {
       resolved[layerId] = geojson;
     }
@@ -318,17 +354,14 @@ function fallbackLegend(): ResolvedLegendItem[] {
 
 function resolveLegend(manifest: ManifestLike): ResolvedLegendItem[] {
   const items: ResolvedLegendItem[] = [];
+
   for (const item of manifest.legend ?? []) {
     const layerId = canonicalLayerId(item.id);
     if (!layerId) continue;
     items.push({
       id: layerId,
       label: asString(item.label, layerId),
-      type: (item.type === "line"
-        ? "line"
-        : item.type === "point"
-          ? "point"
-          : "choropleth") as ResolvedLegendItem["type"],
+      type: (item.type === "line" ? "line" : item.type === "point" ? "point" : "choropleth") as ResolvedLegendItem["type"],
       symbol: (
         item.symbol === "road" ||
         item.symbol === "settlement" ||
@@ -355,24 +388,19 @@ function resolveLegend(manifest: ManifestLike): ResolvedLegendItem[] {
   return [...items, ...missing];
 }
 
-function regionRecordFromFeature(
-  feature: Feature<Geometry, GeoJsonProperties>,
-): RegionRecord {
+function regionRecordFromFeature(feature: Feature<Geometry, GeoJsonProperties>): RegionRecord {
   const props = feature.properties ?? {};
   return {
     id: asString(props.feature_id),
     name: asString(
-      props.region_name || props.adm2_name || props.adm1_name || props.name,
+      props.region_name || props.adm3_name || props.adm2_name || props.adm1_name || props.name,
       "Zone inconnue",
     ),
     adm1Name: asString(props.adm1_name, "n/a"),
     priorityScore: asNumber(props.priority_score ?? props.score),
     score100: asNumber(props.score_100),
     priorityLabel: asString(props.priority_label || props.status, "n/a"),
-    decisionReason: asString(
-      props.decision_reason,
-      "Analyse disponible dans la fiche région.",
-    ),
+    decisionReason: asString(props.decision_reason, "Analyse disponible dans la fiche région."),
     ipcPhase: asNumber(props.ipc_phase_dominant),
     ipcPeopleP3Plus: asNumber(props.ipc_people_p3plus),
     ipcPopulationTotal: asNumber(props.ipc_population_total),
@@ -380,15 +408,10 @@ function regionRecordFromFeature(
   };
 }
 
-function resolveTopRegions(
-  manifest: ManifestLike,
-  admin: FeatureCollection,
-): RegionRecord[] {
+function resolveTopRegions(manifest: ManifestLike, admin: FeatureCollection): RegionRecord[] {
   const summaryRegions = manifest.summary?.top_regions;
   const adminRecords = admin.features.map(regionRecordFromFeature);
-  const byName = new Map(
-    adminRecords.map((record) => [normalizeText(record.name), record]),
-  );
+  const byName = new Map(adminRecords.map((record) => [normalizeText(record.name), record]));
 
   if (summaryRegions?.length) {
     return summaryRegions
@@ -399,24 +422,17 @@ function resolveTopRegions(
           id: existing?.id ?? name,
           name: name || existing?.name || "Zone inconnue",
           adm1Name: existing?.adm1Name ?? "n/a",
-          priorityScore:
-            asNumber(region.priority_score) ?? existing?.priorityScore ?? null,
+          priorityScore: asNumber(region.priority_score) ?? existing?.priorityScore ?? null,
           score100: asNumber(region.score_100) ?? existing?.score100 ?? null,
-          priorityLabel: asString(
-            region.priority_label,
-            existing?.priorityLabel ?? "n/a",
-          ),
+          priorityLabel: asString(region.priority_label, existing?.priorityLabel ?? "n/a"),
           decisionReason: asString(
             region.decision_reason,
             existing?.decisionReason ?? "Analyse disponible dans la fiche région.",
           ),
           ipcPhase: asNumber(region.ipc_phase_dominant) ?? existing?.ipcPhase ?? null,
-          ipcPeopleP3Plus:
-            asNumber(region.ipc_people_p3plus) ?? existing?.ipcPeopleP3Plus ?? null,
+          ipcPeopleP3Plus: asNumber(region.ipc_people_p3plus) ?? existing?.ipcPeopleP3Plus ?? null,
           ipcPopulationTotal:
-            asNumber(region.ipc_population_total) ??
-            existing?.ipcPopulationTotal ??
-            null,
+            asNumber(region.ipc_population_total) ?? existing?.ipcPopulationTotal ?? null,
           ipcShareP3Plus:
             asNumber(region.ipc_share_p3plus) ?? existing?.ipcShareP3Plus ?? null,
         };
@@ -460,16 +476,19 @@ function resolveLayerDefaults(
   return defaults;
 }
 
-function buildDataset(): SenegalDataset {
-  const primary = pickPrimaryManifest();
-  const admin = resolveAdminGeoJson(primary.manifest);
+function buildDataset(country: CountryCatalog): MapDataset {
+  const primary = pickPrimaryManifest(country);
+  const admin = resolveAdminGeoJson(country, primary.manifest);
   const legend = resolveLegend(primary.manifest);
-  const layers = resolveLayers(primary.manifest);
+  const layers = resolveLayers(country, primary.manifest);
   const summary = primary.manifest.summary ?? {};
+  const title = asString(primary.manifest.run?.zone, titleFromSlug(country.slug));
   return {
+    id: country.slug,
+    slug: country.slug,
     manifest: primary.manifest,
     manifestName: primary.name,
-    title: asString(primary.manifest.run?.zone, "Sénégal"),
+    title,
     admin,
     layers,
     legend,
@@ -479,4 +498,120 @@ function buildDataset(): SenegalDataset {
   };
 }
 
-export const senegalDataset = buildDataset();
+export const allDatasets: MapDataset[] = Array.from(CATALOG_BY_COUNTRY.values())
+  .map((country) => buildDataset(country))
+  .sort((left, right) => left.title.localeCompare(right.title));
+
+function combineFeatureCollections(
+  datasets: MapDataset[],
+  selector: (dataset: MapDataset) => FeatureCollection | undefined,
+): FeatureCollection {
+  const features = datasets.flatMap((dataset) =>
+    (selector(dataset)?.features ?? []).map((feature, index) => {
+      const properties = { ...(feature.properties ?? {}) };
+      const baseId =
+        asString(properties.feature_id) ||
+        asString(properties.adm3_pcode) ||
+        asString(properties.adm2_pcode) ||
+        asString(properties.adm1_pcode) ||
+        `${dataset.slug}-${index}`;
+      properties.feature_id = `${dataset.slug}:${baseId}`;
+      properties.country_slug = dataset.slug;
+      properties.country_name = dataset.title;
+      return {
+        ...feature,
+        properties,
+      };
+    }),
+  );
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+function combineLegend(datasets: MapDataset[]): ResolvedLegendItem[] {
+  const seen = new Map<SupportedLayerId, ResolvedLegendItem>();
+  for (const dataset of datasets) {
+    for (const item of dataset.legend) {
+      if (!seen.has(item.id)) {
+        seen.set(item.id, item);
+      }
+    }
+  }
+  return SUPPORTED_LAYERS.map((id) => seen.get(id)).filter(Boolean) as ResolvedLegendItem[];
+}
+
+function combineLayerDefaults(datasets: MapDataset[]): Record<SupportedLayerId, boolean> {
+  return {
+    admin_priority: true,
+    osm_water: datasets.some((dataset) => dataset.layerDefaults.osm_water),
+    osm_settlements: datasets.some((dataset) => dataset.layerDefaults.osm_settlements),
+    osm_roads: datasets.some((dataset) => dataset.layerDefaults.osm_roads),
+  };
+}
+
+function combineSummary(datasets: MapDataset[]): ManifestSummary {
+  return {
+    feature_count: datasets.reduce(
+      (sum, dataset) => sum + Number(dataset.summary.feature_count ?? dataset.admin.features.length ?? 0),
+      0,
+    ),
+    people_p3plus_total: datasets.reduce(
+      (sum, dataset) => sum + Number(dataset.summary.people_p3plus_total ?? 0),
+      0,
+    ),
+    score_100_mean:
+      datasets.reduce((sum, dataset) => sum + Number(dataset.summary.score_100_mean ?? 0), 0) /
+      Math.max(datasets.length, 1),
+  };
+}
+
+function combineTopRegions(datasets: MapDataset[]): RegionRecord[] {
+  return datasets
+    .flatMap((dataset) => dataset.topRegions)
+    .slice()
+    .sort((left, right) => (right.priorityScore ?? -1) - (left.priorityScore ?? -1))
+    .slice(0, 12);
+}
+
+export function getCombinedDataset(): MapDataset {
+  const datasets = allDatasets;
+  if (!datasets.length) {
+    throw new Error("Aucun dataset pays trouvé dans LP/data.");
+  }
+
+  const admin = combineFeatureCollections(datasets, (dataset) => dataset.admin);
+  const layers: Partial<Record<SupportedLayerId, FeatureCollection>> = {
+    admin_priority: admin,
+    osm_water: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_water),
+    osm_settlements: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_settlements),
+    osm_roads: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_roads),
+  };
+
+  return {
+    id: "combined",
+    slug: "combined",
+    manifest: {},
+    manifestName: datasets.map((dataset) => dataset.manifestName).join(", "),
+    title: datasets.map((dataset) => dataset.title).join(" + "),
+    admin,
+    layers,
+    legend: combineLegend(datasets),
+    summary: combineSummary(datasets),
+    topRegions: combineTopRegions(datasets),
+    layerDefaults: combineLayerDefaults(datasets),
+  };
+}
+
+export const combinedDataset = getCombinedDataset();
+
+export function getDatasetBySlug(slug: string | null | undefined): MapDataset | null {
+  if (!slug) return null;
+  return allDatasets.find((dataset) => dataset.slug === slug) ?? null;
+}
+
+export function getDefaultDataset(): MapDataset {
+  return combinedDataset;
+}

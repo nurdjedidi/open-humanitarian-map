@@ -1,0 +1,572 @@
+{
+  "geojson": "data\\outputs\\gambie\\map_20260426_123224.geojson",
+  "world_geojson": "data/outputs/world.geojson",
+  "artifacts": {
+    "admin_priority": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.admin_priority.geojson",
+      "label": "Carte prioritaire",
+      "kind": "primary"
+    },
+    "world": {
+      "geojson": "data/outputs/world.geojson",
+      "label": "Carte mondiale consolidee",
+      "kind": "global"
+    },
+    "osm_settlements": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_settlements.geojson",
+      "label": "Lieux habites",
+      "kind": "settlements"
+    },
+    "osm_water": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_water.geojson",
+      "label": "Points d'eau",
+      "kind": "water_points"
+    },
+    "osm_health": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_health.geojson",
+      "label": "Sante",
+      "kind": "health"
+    },
+    "osm_schools": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_schools.geojson",
+      "label": "Ecoles",
+      "kind": "schools"
+    },
+    "osm_roads": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_roads.geojson",
+      "label": "Routes principales",
+      "kind": "roads"
+    },
+    "osm_context_water": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_water.geojson",
+      "label": "Water",
+      "kind": "context"
+    },
+    "osm_context_settlements": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_settlements.geojson",
+      "label": "Settlements",
+      "kind": "context"
+    },
+    "osm_context_roads": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_roads.geojson",
+      "label": "Roads",
+      "kind": "context"
+    },
+    "osm_context_health": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_health.geojson",
+      "label": "Health",
+      "kind": "context"
+    },
+    "osm_context_schools": {
+      "geojson": "data\\outputs\\gambie\\map_20260426_123224.osm_context_schools.geojson",
+      "label": "Schools",
+      "kind": "context"
+    }
+  },
+  "run": {
+    "zone": "Gambie",
+    "output_name": "map",
+    "created_at": "2026-04-26T12:32:24",
+    "uploaded_files": [
+      "gmb_ppp_2020.tif",
+      "gmb_admin0.geojson",
+      "gmb_admin1.geojson",
+      "gmb_admin2.geojson",
+      "gmb_admin3.geojson",
+      "ipc-sen.xlsx"
+    ]
+  },
+  "profile": {
+    "source_path": "C:\\Users\\djedi\\AppData\\Local\\Temp\\tmpdb3pvmf0.geojson",
+    "source_type": "geojson",
+    "feature_count": 8,
+    "has_geometry": true,
+    "columns": [
+      "adm1_name",
+      "adm1_name1",
+      "adm1_name2",
+      "adm1_name3",
+      "adm1_pcode",
+      "adm0_name",
+      "adm0_name1",
+      "adm0_name2",
+      "adm0_name3",
+      "adm0_pcode",
+      "valid_on",
+      "valid_to",
+      "area_sqkm",
+      "version",
+      "lang",
+      "lang1",
+      "lang2",
+      "lang3",
+      "adm1_ref_name",
+      "lga_en",
+      "center_lat",
+      "center_lon",
+      "tmpukmw2smi_area_sqkm",
+      "tmpukmw2smi_center_lat",
+      "tmpukmw2smi_center_lon",
+      "tmpukmw2smi_count",
+      "tmpwx9dxul3_area_sqkm",
+      "tmpwx9dxul3_center_lat",
+      "tmpwx9dxul3_center_lon",
+      "tmpwx9dxul3_count",
+      "tmpo10jflmh_area_sqkm",
+      "tmpo10jflmh_center_lat",
+      "tmpo10jflmh_center_lon",
+      "tmpo10jflmh_count",
+      "tmpzw3va56z_adm0_5_pcod2",
+      "tmpzw3va56z_exercise_code",
+      "tmpzw3va56z_exercise_year",
+      "tmpzw3va56z_reference_code",
+      "tmpzw3va56z_reference_year",
+      "tmpzw3va56z_population",
+      "tmpzw3va56z_phase_class",
+      "tmpzw3va56z_phase1",
+      "tmpzw3va56z_phase2",
+      "tmpzw3va56z_phase3",
+      "tmpzw3va56z_phase4",
+      "tmpzw3va56z_phase5",
+      "tmpzw3va56z_phase35",
+      "tmpzw3va56z_foodconsumption_phase",
+      "tmpzw3va56z_livelihoods_phase",
+      "tmpzw3va56z_nutrition_phase",
+      "tmpzw3va56z_mortality_phase",
+      "tmpzw3va56z_fcg_poor",
+      "tmpzw3va56z_fcg_borderline",
+      "tmpzw3va56z_fcg_acceptable",
+      "tmpzw3va56z_fcg_finalphase",
+      "tmpzw3va56z_hdds_phase1",
+      "tmpzw3va56z_hdds_phase2",
+      "tmpzw3va56z_hdds_phase3",
+      "tmpzw3va56z_hdds_phase4",
+      "tmpzw3va56z_hdds_phase5",
+      "tmpzw3va56z_hdds_finalphase",
+      "tmpzw3va56z_hhs_phase1",
+      "tmpzw3va56z_hhs_phase2",
+      "tmpzw3va56z_hhs_phase3",
+      "tmpzw3va56z_hhs_phase4",
+      "tmpzw3va56z_hhs_phase5",
+      "tmpzw3va56z_hhs_finalphase",
+      "tmpzw3va56z_lhhcscat_nostrategies",
+      "tmpzw3va56z_lhhcscat_stressstrategies",
+      "tmpzw3va56z_lhhcscat_crisisstategies",
+      "tmpzw3va56z_lhhcscat_emergencystrategies",
+      "tmpzw3va56z_lhhcscat_finalphase",
+      "tmpzw3va56z_rcsi_phase1",
+      "tmpzw3va56z_rcsi_phase2",
+      "tmpzw3va56z_rcsi_phase3",
+      "tmpzw3va56z_rcsi_finalphase",
+      "tmpzw3va56z_source_level",
+      "tmpzw3va56z_inherited",
+      "tmpuym5sc9p_mean",
+      "tmpuym5sc9p_sum",
+      "geometry"
+    ],
+    "detected_fields": [
+      {
+        "logical_name": "geometry",
+        "source_name": "geometry",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "latitude",
+        "source_name": "center_lat",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "longitude",
+        "source_name": "center_lon",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "admin_name",
+        "source_name": "adm0_name",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population",
+        "source_name": "tmpzw3va56z_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population_total",
+        "source_name": "tmpzw3va56z_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "ipc_phase",
+        "source_name": "tmpzw3va56z_phase_class",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase1",
+        "source_name": "tmpzw3va56z_phase1",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase2",
+        "source_name": "tmpzw3va56z_phase2",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase3",
+        "source_name": "tmpzw3va56z_phase3",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase4",
+        "source_name": "tmpzw3va56z_phase4",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase5",
+        "source_name": "tmpzw3va56z_phase5",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase35",
+        "source_name": "tmpzw3va56z_phase35",
+        "confidence": 0.8
+      }
+    ],
+    "crs": "EPSG:4326"
+  },
+  "summary": {
+    "feature_count": 8,
+    "status_counts": {
+      "A surveiller": 7,
+      "Faible": 1
+    },
+    "score_min": 0.20474826346029182,
+    "score_max": 0.4963379903357839,
+    "score_mean": 0.4256425336724534,
+    "score_100_mean": 42.5625,
+    "people_p3plus_total": 146743.96031746033,
+    "osm_counts": {
+      "settlements": 5000,
+      "water_points": 513,
+      "health": 1561,
+      "schools": 1069,
+      "roads": 5000
+    },
+    "osm_source": "local_pbf",
+    "top_regions": [
+      {
+        "name": "Central River North",
+        "priority_rank": 1,
+        "priority_score": 0.4963379903357839,
+        "score_100": 49.6,
+        "priority_label": "A surveiller",
+        "decision_reason": "16k personnes P3+, 12.8% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2,
+        "ipc_people_p3plus": 15718.607142857143,
+        "ipc_people_p4plus": 947.2142857142857,
+        "ipc_share_p3plus": 0.12806064448587165,
+        "ipc_population_total": 122743.46428571429,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Upper River",
+        "priority_rank": 2,
+        "priority_score": 0.48937962380611355,
+        "score_100": 48.9,
+        "priority_label": "A surveiller",
+        "decision_reason": "24k personnes P3+, 9.7% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2,
+        "ipc_people_p3plus": 24466.35714285714,
+        "ipc_people_p4plus": 829.6785714285714,
+        "ipc_share_p3plus": 0.09702872217759909,
+        "ipc_population_total": 252155.82142857142,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Lower River",
+        "priority_rank": 3,
+        "priority_score": 0.48485202618975365,
+        "score_100": 48.5,
+        "priority_label": "A surveiller",
+        "decision_reason": "12k personnes P3+, 12.4% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2,
+        "ipc_people_p3plus": 11918.82142857143,
+        "ipc_people_p4plus": 466.5,
+        "ipc_share_p3plus": 0.12371187141234018,
+        "ipc_population_total": 96343.39285714286,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "West Coast",
+        "priority_rank": 4,
+        "priority_score": 0.47426811051853324,
+        "score_100": 47.4,
+        "priority_label": "A surveiller",
+        "decision_reason": "46k personnes P3+, 4.5% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2,
+        "ipc_people_p3plus": 46236.78571428572,
+        "ipc_people_p4plus": 408.32142857142856,
+        "ipc_share_p3plus": 0.04473549911113322,
+        "ipc_population_total": 1033559.1785714285,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Central River South",
+        "priority_rank": 5,
+        "priority_score": 0.4656405842701975,
+        "score_100": 46.6,
+        "priority_label": "A surveiller",
+        "decision_reason": "13k personnes P3+, 9.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2,
+        "ipc_people_p3plus": 13277.17857142857,
+        "ipc_people_p4plus": 585.5357142857143,
+        "ipc_share_p3plus": 0.08987125884936766,
+        "ipc_population_total": 147735.5357142857,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      }
+    ],
+    "data_quality": {
+      "missing_counts": {
+        "priority_score": 0,
+        "score_100": 0,
+        "ipc_phase_dominant": 0,
+        "ipc_people_p3plus": 0,
+        "ipc_people_p4plus": 0,
+        "ipc_share_p3plus": 0,
+        "ipc_population_total": 0
+      },
+      "rows_without_priority_score": 0,
+      "rows_with_missing_decision_reason": 0,
+      "osm_layers_available": [
+        "settlements",
+        "water_points",
+        "health",
+        "schools",
+        "roads"
+      ]
+    },
+    "pipeline_log": [
+      "OSM local detecte: senegal-and-gambia-260422.osm.pbf",
+      "Base admin choisie automatiquement: tmpdb3pvmf0",
+      "tmpukmw2smi: agregation spatiale terminee.",
+      "tmpwx9dxul3: agregation spatiale terminee.",
+      "tmpo10jflmh: agregation spatiale terminee.",
+      "tmpzw3va56z: filtre pays applique via adm0_name (206/40338 lignes conservees).",
+      "tmpzw3va56z: fusion tabulaire par region via adm1_pcod2 -> adm1_pcode (overlap=8, jointure directe).",
+      "tmpuym5sc9p.tif: progression raster 8/8",
+      "tmpuym5sc9p.tif: agregation raster par region terminee.",
+      "OSM local: lecture senegal-and-gambia-260422.osm.pbf.",
+      "OSM local: extraction sur toute la zone du fichier .pbf.",
+      "OSM local: 5000 lieux, 513 eau, 1561 sante, 1069 ecoles, 5000 routes."
+    ],
+    "groq": {
+      "raw": "```json\n{\n  \"headline\": \"Humanitarian Map Summary\",\n  \"top_hotspots\": [\n    {\n      \"name\": \"Central River North\",\n      \"priority_rank\": 1,\n      \"priority_score\": 0.4963379903357839,\n      \"ipc_phase_dominant\": 2,\n      \"ipc_people_p3plus\": 15718.607142857143\n    },\n    {\n      \"name\": \"Upper River\",\n      \"priority_rank\": 2,\n      \"priority_score\": 0.48937962380611355,\n      \"ipc_phase_dominant\": 2,\n      \"ipc_people_p3plus\": 24466.35714285714\n    },\n    {\n      \"name\": \"Lower River\",\n      \"priority_rank\": 3,\n      \"priority_score\": 0.48485202618975365,\n      \"ipc_phase_dominant\": 2,\n      \"ipc_people_p3plus\": 11918.82142857143\n    },\n    {\n      \"name\": \"West Coast\",\n      \"priority_rank\": 4,\n      \"priority_score\": 0.47426811051853324,\n      \"ipc_phase_dominant\": 2,\n      \"ipc_people_p3plus\": 46236.78571428572\n    },\n    {\n      \"name\": \"Central River South\",\n      \"priority_rank\": 5,\n      \"priority_score\": 0.4656405842701975,\n      \"ipc_phase_dominant\": 2,\n      \"ipc_people_p3plus\": 13277.17857142857\n    }\n  ],\n  \"data_gaps\": {\n    \"missing_counts\": {\n      \"priority_score\": 0,\n      \"score_100\": 0,\n      \"ipc_phase_dominant\": 0,\n      \"ipc_people_p3plus\": 0,\n      \"ipc_people_p4plus\": 0,\n      \"ipc_share_p3plus\": 0,\n      \"ipc_population_total\": 0\n    },\n    \"rows_without_priority_score\": 0,\n    \"rows_with_missing_decision_reason\": 0,\n    \"osm_layers_available\": [\n      \"settlements\",\n      \"water_points\",\n      \"health\",\n      \"schools\",\n      \"roads\"\n    ]\n  },\n  \"recommended_next_step\": \"Monitor and respond to humanitarian needs in the top hotspots\"\n}\n```"
+    }
+  },
+  "legend": [
+    {
+      "id": "admin_priority",
+      "label": "Priorite administrative",
+      "type": "choropleth",
+      "symbol": "fill",
+      "color_scale": [
+        "#fff1aa",
+        "#f5b437",
+        "#dc4b23",
+        "#91141a",
+        "#23080c"
+      ],
+      "meaning": "Couche principale: gravite IPC + population affectee.",
+      "zoom": {
+        "min": 0,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\gambie\\map_20260426_123224.geojson",
+      "artifact": "data\\outputs\\gambie\\map_20260426_123224.admin_priority.geojson"
+    },
+    {
+      "id": "osm_water",
+      "label": "Points d'eau",
+      "type": "point",
+      "symbol": "droplet",
+      "color": "#3b82f6",
+      "meaning": "Contexte terrain: points d'eau localises.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\gambie\\map_20260426_123224.osm_context_water.geojson",
+      "artifact": "data\\outputs\\gambie\\map_20260426_123224.osm_context_water.geojson"
+    },
+    {
+      "id": "osm_settlements",
+      "label": "Lieux habites",
+      "type": "point",
+      "symbol": "settlement",
+      "color": "#1f2937",
+      "meaning": "Contexte terrain: villes, villages, hameaux.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\gambie\\map_20260426_123224.osm_context_settlements.geojson",
+      "artifact": "data\\outputs\\gambie\\map_20260426_123224.osm_context_settlements.geojson"
+    },
+    {
+      "id": "osm_roads",
+      "label": "Routes principales",
+      "type": "line",
+      "symbol": "road",
+      "color": "#6b7280",
+      "meaning": "Contexte terrain: axes de circulation utiles pour l'acces.",
+      "zoom": {
+        "min": 6,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\gambie\\map_20260426_123224.osm_context_roads.geojson",
+      "artifact": "data\\outputs\\gambie\\map_20260426_123224.osm_context_roads.geojson"
+    },
+    {
+      "id": "osm_health",
+      "label": "Sante",
+      "type": "point",
+      "symbol": "hospital",
+      "color": "#ef4444",
+      "meaning": "Contexte terrain: hopitaux et structures de sante.",
+      "zoom": {
+        "min": 8,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\gambie\\map_20260426_123224.osm_context_health.geojson",
+      "artifact": "data\\outputs\\gambie\\map_20260426_123224.osm_context_health.geojson"
+    }
+  ],
+  "maplibre": {
+    "views": [
+      {
+        "id": "priority",
+        "field": "priority_score",
+        "label": "Priorite"
+      },
+      {
+        "id": "people_p3plus",
+        "field": "ipc_people_p3plus",
+        "label": "Personnes P3+"
+      },
+      {
+        "id": "share_p3plus",
+        "field": "ipc_share_p3plus",
+        "label": "Part P3+"
+      },
+      {
+        "id": "missing_data",
+        "field": "priority_label",
+        "label": "Donnees manquantes"
+      },
+      {
+        "id": "osm_context",
+        "field": "osm_context_note",
+        "label": "Contexte OSM"
+      }
+    ],
+    "admin_layer": "admin_priority",
+    "default_view": "priority",
+    "default_layers": [
+      "admin_priority",
+      "osm_water",
+      "osm_settlements",
+      "osm_roads"
+    ],
+    "legend_key": "legend"
+  },
+  "layers": [
+    {
+      "id": "admin_priority",
+      "type": "choropleth",
+      "field": "priority_score",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.geojson",
+      "label": "Carte prioritaire",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "status",
+      "type": "categorical",
+      "field": "status",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.geojson",
+      "label": "Statut humanitaire",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_settlements",
+      "type": "settlements",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.osm_context_settlements.geojson",
+      "label": "Lieux habites",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_water",
+      "type": "water_points",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.osm_context_water.geojson",
+      "label": "Points d'eau",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_health",
+      "type": "health",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.osm_context_health.geojson",
+      "label": "Sante",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 8,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_schools",
+      "type": "schools",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.osm_context_schools.geojson",
+      "label": "Ecoles",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 8,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_roads",
+      "type": "roads",
+      "path": "data\\outputs\\gambie\\map_20260426_123224.osm_context_roads.geojson",
+      "label": "Routes principales",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 6,
+        "max": null
+      }
+    }
+  ]
+}

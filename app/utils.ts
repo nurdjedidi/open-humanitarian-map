@@ -116,16 +116,16 @@ function interpolateColor(left: [number, number, number], right: [number, number
 export function priorityColor(score: unknown, alpha = 210): [number, number, number, number] {
   const parsed = safeNumber(score);
   if (parsed === null) {
-    return [168, 168, 168, 104];
+    return [168, 168, 168, 110];
   }
 
   const clamped = clamp(parsed, 0, 1);
   const stops: Array<[number, [number, number, number]]> = [
-    [0, [255, 241, 170]],
-    [0.35, [245, 180, 55]],
-    [0.6, [220, 75, 35]],
-    [0.82, [145, 20, 25]],
-    [1, [35, 8, 12]],
+    [0, [255, 240, 168]],
+    [0.28, [255, 187, 56]],
+    [0.55, [235, 96, 35]],
+    [0.8, [168, 28, 25]],
+    [1, [52, 7, 11]],
   ];
 
   for (let index = 0; index < stops.length - 1; index += 1) {

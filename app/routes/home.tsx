@@ -1,23 +1,28 @@
 import type { Route } from "./+types/home";
 
-import { LandingPage } from "~/components/landing-page";
-import { landingConfig } from "~/content";
+import { MapFirstPage } from "~/components/map-first-page";
+import { RuntimeSeo } from "~/components/runtime-seo";
+import { appConfig } from "~/content";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: landingConfig.seo.title },
-    { name: "description", content: landingConfig.seo.description },
-    { tagName: "link", rel: "canonical", href: landingConfig.canonicalUrl },
-    { property: "og:title", content: landingConfig.seo.ogTitle },
-    { property: "og:description", content: landingConfig.seo.ogDescription },
+    { title: "OHM – Open Humanitarian Map" },
+    {
+      name: "description",
+      content: "Open Humanitarian Map",
+    },
+    { tagName: "link", rel: "canonical", href: appConfig.canonicalUrl },
     { property: "og:type", content: "website" },
-    { property: "og:url", content: landingConfig.canonicalUrl },
+    { property: "og:url", content: appConfig.canonicalUrl },
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: landingConfig.seo.ogTitle },
-    { name: "twitter:description", content: landingConfig.seo.ogDescription },
   ];
 }
 
 export default function Home() {
-  return <LandingPage />;
+  return (
+    <>
+      <RuntimeSeo titleKey="seo.homeTitle" descriptionKey="seo.homeDescription" />
+      <MapFirstPage />
+    </>
+  );
 }

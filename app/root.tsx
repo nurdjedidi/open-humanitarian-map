@@ -8,6 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import { I18nProvider } from "./i18n/provider";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -33,9 +34,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
-        <ScrollRestoration />
-        <Scripts />
+        <I18nProvider>
+          {children}
+          <ScrollRestoration />
+          <Scripts />
+        </I18nProvider>
       </body>
     </html>
   );

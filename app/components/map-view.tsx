@@ -1,5 +1,4 @@
-import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type {
   Feature,
   FeatureCollection,
@@ -7,8 +6,10 @@ import type {
   Geometry,
 } from "geojson";
 import type { StyleSpecification } from "maplibre-gl";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { RegionRecord, SenegalDataset } from "~/data/senegal";
+import type { MapDataset, RegionRecord } from "~/data/datasets";
+import { useI18n } from "~/i18n/use-i18n";
 import {
   featureName,
   formatCompactNumber,
@@ -22,8 +23,25 @@ import {
 export type BasemapId = "voyager" | "dark-matter" | "satellite";
 
 type SelectionDetail =
-  | { kind: "region"; id: string; title: string; line1: string; line2: string }
-  | { kind: "osm"; id: string; title: string; line1: string; line2: string };
+  | {
+      kind: "region";
+      id: string;
+      title: string;
+      badges: [string, string];
+      accent: "amber";
+    }
+  | {
+      kind: "osm";
+      id: string;
+      title: string;
+      badges: [string, string?];
+      accent: "blue" | "slate";
+    };
+
+type TooltipPosition = {
+  x: number;
+  y: number;
+};
 
 type PointRecord = {
   id: string;
@@ -33,8 +51,14 @@ type PointRecord = {
   coordinates: [number, number];
 };
 
+type CountryLabelRecord = {
+  id: string;
+  label: string;
+  coordinates: [number, number];
+};
+
 type MapViewProps = {
-  dataset: SenegalDataset;
+  dataset: MapDataset;
   showWater: boolean;
   showSettlements: boolean;
   showRoads: boolean;
@@ -45,7 +69,7 @@ type MapViewProps = {
 };
 
 const INITIAL_CENTER: [number, number] = [-14.7, 14.5];
-const INITIAL_ZOOM = 5.5;
+const INITIAL_ZOOM = 4.55;
 
 export const BASEMAPS: Array<{
   id: BasemapId;
@@ -88,6 +112,7 @@ export const BASEMAPS: Array<{
 
 function buildRegionRecord(
   feature: Feature<Geometry, GeoJsonProperties>,
+  fallbackReason: string,
 ): RegionRecord {
   const props = feature.properties ?? {};
   return {
@@ -105,9 +130,7 @@ function buildRegionRecord(
           ? props.status
           : "n/a",
     decisionReason:
-      typeof props.decision_reason === "string"
-        ? props.decision_reason
-        : "Analyse disponible dans la fiche région.",
+      typeof props.decision_reason === "string" ? props.decision_reason : fallbackReason,
     ipcPhase: safeNumber(props.ipc_phase_dominant),
     ipcPeopleP3Plus: safeNumber(props.ipc_people_p3plus),
     ipcPopulationTotal: safeNumber(props.ipc_population_total),
@@ -115,10 +138,13 @@ function buildRegionRecord(
   };
 }
 
-function featureRecordIndex(collection: FeatureCollection): Map<string, RegionRecord> {
+function featureRecordIndex(
+  collection: FeatureCollection,
+  fallbackReason: string,
+): Map<string, RegionRecord> {
   return new Map(
     collection.features.map((feature) => {
-      const record = buildRegionRecord(feature);
+      const record = buildRegionRecord(feature, fallbackReason);
       return [record.id, record];
     }),
   );
@@ -184,14 +210,94 @@ function mapBounds(collection: FeatureCollection): [[number, number], [number, n
   ];
 }
 
-function regionTooltip(record: RegionRecord): SelectionDetail {
-  return {
-    kind: "region",
-    id: record.id,
-    title: record.name,
-    line1: `${formatScore100(record.score100)} | Phase IPC ${record.ipcPhase ?? "n/a"}`,
-    line2: `P3+: ${formatCompactNumber(record.ipcPeopleP3Plus)} | Pop: ${formatCompactNumber(record.ipcPopulationTotal)}`,
-  };
+function countryLabelRecords(collection: FeatureCollection): CountryLabelRecord[] {
+  const grouped = new Map<
+    string,
+    { label: string; minLng: number; minLat: number; maxLng: number; maxLat: number }
+  >();
+
+  for (const feature of collection.features) {
+    const props = feature.properties ?? {};
+    const key =
+      (typeof props.country_slug === "string" && props.country_slug) ||
+      (typeof props.adm0_name === "string" && props.adm0_name) ||
+      "country";
+    const label =
+      (typeof props.country_name === "string" && props.country_name) ||
+      (typeof props.adm0_name === "string" && props.adm0_name) ||
+      key;
+    const [[minLng, minLat], [maxLng, maxLat]] = getFeatureBounds(feature);
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, { label, minLng, minLat, maxLng, maxLat });
+      continue;
+    }
+    current.minLng = Math.min(current.minLng, minLng);
+    current.minLat = Math.min(current.minLat, minLat);
+    current.maxLng = Math.max(current.maxLng, maxLng);
+    current.maxLat = Math.max(current.maxLat, maxLat);
+  }
+
+  return Array.from(grouped.entries()).map(([key, value]) => ({
+    id: key,
+    label: value.label,
+    coordinates: [
+      (value.minLng + value.maxLng) / 2,
+      (value.minLat + value.maxLat) / 2,
+    ],
+  }));
+}
+
+function tintByCountry(
+  color: [number, number, number, number],
+  countrySlug: unknown,
+): [number, number, number, number] {
+  const slug = typeof countrySlug === "string" ? countrySlug : "";
+  if (slug === "gambie" || slug === "gambia") {
+    return [
+      Math.min(255, color[0] + 10),
+      Math.max(0, color[1] - 8),
+      Math.max(0, color[2] - 8),
+      color[3],
+    ];
+  }
+  if (slug === "senegal") {
+    return [
+      Math.max(0, color[0] - 2),
+      Math.min(255, color[1] + 3),
+      Math.max(0, color[2] - 2),
+      color[3],
+    ];
+  }
+  return color;
+}
+
+function findLabelLayerId(map: any): string | null {
+  const styleLayers = map?.getStyle?.()?.layers;
+  if (!Array.isArray(styleLayers)) return null;
+
+  const firstSymbolLayer = styleLayers.find((layer: any) => layer?.type === "symbol");
+  return firstSymbolLayer?.id ?? null;
+}
+
+function tuneBasemapLabels(map: any, basemapId: BasemapId) {
+  const styleLayers = map?.getStyle?.()?.layers;
+  if (!Array.isArray(styleLayers)) return;
+
+  const isDark = basemapId === "dark-matter";
+  const textColor = isDark ? "#ffffff" : "#1a1a1a";
+  const haloColor = isDark ? "#000000" : "#ffffff";
+
+  for (const layer of styleLayers) {
+    if (layer?.type !== "symbol" || !layer?.layout?.["text-field"]) continue;
+
+    try {
+      map.setPaintProperty(layer.id, "text-color", textColor);
+      map.setPaintProperty(layer.id, "text-halo-color", haloColor);
+      map.setPaintProperty(layer.id, "text-halo-width", 1.4);
+      map.setPaintProperty(layer.id, "text-halo-blur", 0.2);
+    } catch { }
+  }
 }
 
 export function MapView({
@@ -204,27 +310,38 @@ export function MapView({
   onRegionHover,
   onRegionSelect,
 }: MapViewProps) {
+  const { t } = useI18n();
   const mapRootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const overlayRef = useRef<any>(null);
+  const basemapStyleRef = useRef<string | StyleSpecification | null>(null);
 
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
   const [detail, setDetail] = useState<SelectionDetail | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [labelLayerId, setLabelLayerId] = useState<string | null>(null);
 
-  const regionIndex = useMemo(() => featureRecordIndex(dataset.admin), [dataset.admin]);
+  const regionFallbackReason = t("demo.defaultReason");
+  const regionIndex = useMemo(
+    () => featureRecordIndex(dataset.admin, regionFallbackReason),
+    [dataset.admin, regionFallbackReason],
+  );
   const currentBasemap = useMemo(
     () => BASEMAPS.find((item) => item.id === basemapId) ?? BASEMAPS[0],
     [basemapId],
   );
+  const initialBasemapStyleRef = useRef<string | StyleSpecification>(currentBasemap.style);
 
+  const waterLabel = t("demo.water");
+  const settlementsLabel = t("demo.settlements");
   const waterPoints = useMemo(
-    () => pointRecords(dataset.layers.osm_water, "Point d'eau"),
-    [dataset.layers.osm_water],
+    () => pointRecords(dataset.layers.osm_water, waterLabel),
+    [dataset.layers.osm_water, waterLabel],
   );
   const settlementPoints = useMemo(
-    () => pointRecords(dataset.layers.osm_settlements, "Lieu habité"),
-    [dataset.layers.osm_settlements],
+    () => pointRecords(dataset.layers.osm_settlements, settlementsLabel),
+    [dataset.layers.osm_settlements, settlementsLabel],
   );
   const waterOverviewRecords = useMemo(
     () =>
@@ -233,9 +350,9 @@ export function MapView({
           type: "FeatureCollection",
           features: downsampleFeatures(dataset.layers.osm_water?.features ?? [], 110),
         },
-        "Point d'eau",
+        waterLabel,
       ),
-    [dataset.layers.osm_water],
+    [dataset.layers.osm_water, waterLabel],
   );
   const settlementOverviewRecords = useMemo(
     () =>
@@ -247,12 +364,13 @@ export function MapView({
             150,
           ),
         },
-        "Lieu habité",
+        settlementsLabel,
       ),
-    [dataset.layers.osm_settlements],
+    [dataset.layers.osm_settlements, settlementsLabel],
   );
+  const countryLabels = useMemo(() => countryLabelRecords(dataset.admin), [dataset.admin]);
 
-  const buildLayers = useMemo(() => {
+  const layers = useMemo(() => {
     const layers: any[] = [
       new GeoJsonLayer({
         id: "admin-priority",
@@ -266,29 +384,58 @@ export function MapView({
         getLineColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
           feature.properties?.feature_id === selectedRegionId
             ? [248, 250, 252, 245]
-            : [62, 62, 62, 170],
+            : [56, 56, 62, 190],
         getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
-          priorityColor(feature.properties?.priority_score ?? feature.properties?.score, 190),
+          tintByCountry(
+            priorityColor(feature.properties?.priority_score ?? feature.properties?.score, 146),
+            feature.properties?.country_slug ?? feature.properties?.adm0_name,
+          ),
         updateTriggers: {
           getFillColor: [selectedRegionId],
           getLineWidth: [selectedRegionId],
           getLineColor: [selectedRegionId],
         },
+        beforeId: labelLayerId ?? undefined,
         autoHighlight: false,
-        onHover: ({ object }: { object?: Feature<Geometry, GeoJsonProperties> | null }) => {
+        onHover: ({
+          object,
+          x,
+          y,
+        }: {
+          object?: Feature<Geometry, GeoJsonProperties> | null;
+          x: number;
+          y: number;
+        }) => {
           if (!object) {
             onRegionHover?.(null);
+            setDetail(null);
+            setTooltipPosition(null);
             return;
           }
-          const record = buildRegionRecord(object);
+          const record = buildRegionRecord(object, regionFallbackReason);
           onRegionHover?.(record);
-          setDetail(regionTooltip(record));
+          setDetail({
+            kind: "region",
+            id: record.id,
+            title: record.name,
+            badges: [
+              t("demo.mapTooltipLineRegion", {
+                score: formatScore100(record.score100),
+                phase: record.ipcPhase ?? "n/a",
+              }),
+              t("demo.mapTooltipLineRegion2", {
+                p3: formatCompactNumber(record.ipcPeopleP3Plus),
+                population: formatCompactNumber(record.ipcPopulationTotal),
+              }),
+            ],
+            accent: "amber",
+          });
+          setTooltipPosition({ x, y });
         },
         onClick: ({ object }: { object?: Feature<Geometry, GeoJsonProperties> | null }) => {
           if (!object) return;
-          const record = buildRegionRecord(object);
+          const record = buildRegionRecord(object, regionFallbackReason);
           onRegionSelect?.(record);
-          setDetail(regionTooltip(record));
           mapRef.current?.fitBounds(getFeatureBounds(object), {
             padding: { top: 60, bottom: 60, left: 60, right: 60 },
             duration: 600,
@@ -297,6 +444,7 @@ export function MapView({
         },
       }),
     ];
+
 
     if (showRoads && dataset.layers.osm_roads) {
       layers.push(
@@ -310,6 +458,7 @@ export function MapView({
           getLineWidth: zoom >= 9 ? 2.2 : 1.3,
           getLineColor: [80, 80, 86, 145],
           updateTriggers: { getLineWidth: [zoom] },
+          beforeId: labelLayerId ?? undefined,
           autoHighlight: false,
         }),
       );
@@ -332,16 +481,31 @@ export function MapView({
           radiusMinPixels: 4,
           radiusMaxPixels: 7,
           getRadius: 70,
+          beforeId: labelLayerId ?? undefined,
+          parameters: { depthTest: false },
           autoHighlight: false,
-          onHover: ({ object }: { object?: PointRecord | null }) => {
-            if (!object) return;
+          onHover: ({
+            object,
+            x,
+            y,
+          }: {
+            object?: PointRecord | null;
+            x: number;
+            y: number;
+          }) => {
+            if (!object) {
+              setDetail(null);
+              setTooltipPosition(null);
+              return;
+            }
             setDetail({
               kind: "osm",
               id: object.id,
               title: object.label,
-              line1: object.line1,
-              line2: object.line2,
+              badges: [object.line1, object.line2 || undefined],
+              accent: "blue",
             });
+            setTooltipPosition({ x, y });
           },
         }),
       );
@@ -360,16 +524,31 @@ export function MapView({
           radiusMinPixels: 5,
           radiusMaxPixels: 9,
           getRadius: 82,
+          beforeId: labelLayerId ?? undefined,
+          parameters: { depthTest: false },
           autoHighlight: false,
-          onHover: ({ object }: { object?: PointRecord | null }) => {
-            if (!object) return;
+          onHover: ({
+            object,
+            x,
+            y,
+          }: {
+            object?: PointRecord | null;
+            x: number;
+            y: number;
+          }) => {
+            if (!object) {
+              setDetail(null);
+              setTooltipPosition(null);
+              return;
+            }
             setDetail({
               kind: "osm",
               id: object.id,
               title: object.label,
-              line1: object.line1,
-              line2: object.line2,
+              badges: [object.line1, object.line2 || undefined],
+              accent: "blue",
             });
+            setTooltipPosition({ x, y });
           },
         }),
       );
@@ -392,16 +571,31 @@ export function MapView({
           radiusMinPixels: 2.5,
           radiusMaxPixels: 6,
           getRadius: 80,
+          beforeId: labelLayerId ?? undefined,
+          parameters: { depthTest: false },
           autoHighlight: false,
-          onHover: ({ object }: { object?: PointRecord | null }) => {
-            if (!object) return;
+          onHover: ({
+            object,
+            x,
+            y,
+          }: {
+            object?: PointRecord | null;
+            x: number;
+            y: number;
+          }) => {
+            if (!object) {
+              setDetail(null);
+              setTooltipPosition(null);
+              return;
+            }
             setDetail({
               kind: "osm",
               id: object.id,
               title: object.label,
-              line1: "Lieu habité",
-              line2: "",
+              badges: [settlementsLabel],
+              accent: "slate",
             });
+            setTooltipPosition({ x, y });
           },
         }),
       );
@@ -420,16 +614,31 @@ export function MapView({
           radiusMinPixels: 3,
           radiusMaxPixels: 8,
           getRadius: 90,
+          beforeId: labelLayerId ?? undefined,
+          parameters: { depthTest: false },
           autoHighlight: false,
-          onHover: ({ object }: { object?: PointRecord | null }) => {
-            if (!object) return;
+          onHover: ({
+            object,
+            x,
+            y,
+          }: {
+            object?: PointRecord | null;
+            x: number;
+            y: number;
+          }) => {
+            if (!object) {
+              setDetail(null);
+              setTooltipPosition(null);
+              return;
+            }
             setDetail({
               kind: "osm",
               id: object.id,
               title: object.label,
-              line1: "Lieu habité",
-              line2: "",
+              badges: [settlementsLabel],
+              accent: "slate",
             });
+            setTooltipPosition({ x, y });
           },
         }),
       );
@@ -439,12 +648,18 @@ export function MapView({
   }, [
     dataset.admin,
     dataset.layers.osm_roads,
+    regionFallbackReason,
     selectedRegionId,
+    settlementsLabel,
+    settlementOverviewRecords,
+    settlementPoints,
     showRoads,
     showSettlements,
     showWater,
-    settlementOverviewRecords,
-    settlementPoints,
+    countryLabels,
+    labelLayerId,
+    t,
+    waterLabel,
     waterOverviewRecords,
     waterPoints,
     zoom,
@@ -466,7 +681,7 @@ export function MapView({
 
       const map = new maplibregl.Map({
         container: mapRootRef.current,
-        style: currentBasemap.style,
+        style: initialBasemapStyleRef.current,
         center: INITIAL_CENTER,
         zoom: INITIAL_ZOOM,
         minZoom: 5,
@@ -482,29 +697,48 @@ export function MapView({
         "top-right",
       );
 
-      const overlay = new MapboxOverlay({ interleaved: true, layers: buildLayers });
+      const overlay = new MapboxOverlay({ interleaved: true, layers });
       overlayRef.current = overlay;
       map.addControl(overlay);
+      basemapStyleRef.current = currentBasemap.style;
 
       const sync = () => setZoom(map.getZoom());
 
       const bindStyleState = () => {
-        overlay.setProps({ layers: buildLayers });
+        const nextLabelLayerId = findLabelLayerId(map);
+        setLabelLayerId((current) =>
+          current === nextLabelLayerId ? current : nextLabelLayerId,
+        );
+        tuneBasemapLabels(map, basemapId);
+        overlay.setProps({ layers });
       };
 
       map.on("load", () => {
         bindStyleState();
         map.fitBounds(mapBounds(dataset.admin), {
-          padding: { top: 72, bottom: 72, left: 72, right: 72 },
+          padding: { top: 120, bottom: 120, left: 120, right: 120 },
           duration: 0,
-          maxZoom: 6.95,
+          maxZoom: 5.2,
         });
         sync();
         setIsMapReady(true);
       });
 
+      map.on("styledata", () => {
+        // Use a much lighter sync for style data to avoid loops
+        const nextLabelLayerId = findLabelLayerId(map);
+        setLabelLayerId((current) =>
+          current === nextLabelLayerId ? current : nextLabelLayerId,
+        );
+        // We only tune labels if they aren't already tuned? 
+        // Actually, we'll just be careful not to trigger infinite loops.
+        // Moving tuneBasemapLabels out of here for now, or making it smarter.
+      });
+
+      // Style load is the best place to re-apply our custom tuning
+      map.on("style.load", bindStyleState);
+
       map.on("zoomend", sync);
-      map.on("styledata", bindStyleState);
     };
 
     void run();
@@ -515,11 +749,20 @@ export function MapView({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [buildLayers, currentBasemap.style, dataset.admin]);
+  }, [dataset.admin]);
 
   useEffect(() => {
-    overlayRef.current?.setProps({ layers: buildLayers });
-  }, [buildLayers]);
+    overlayRef.current?.setProps({ layers });
+  }, [layers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (basemapStyleRef.current === currentBasemap.style) return;
+
+    basemapStyleRef.current = currentBasemap.style;
+    map.setStyle(currentBasemap.style);
+  }, [currentBasemap.style]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -536,12 +779,28 @@ export function MapView({
     });
     const record = regionIndex.get(selectedRegionId);
     if (record) {
-      setDetail(regionTooltip(record));
+      setDetail({
+        kind: "region",
+        id: record.id,
+        title: record.name,
+        badges: [
+          t("demo.mapTooltipLineRegion", {
+            score: formatScore100(record.score100),
+            phase: record.ipcPhase ?? "n/a",
+          }),
+          t("demo.mapTooltipLineRegion2", {
+            p3: formatCompactNumber(record.ipcPeopleP3Plus),
+            population: formatCompactNumber(record.ipcPopulationTotal),
+          }),
+        ],
+        accent: "amber",
+      });
+      setTooltipPosition(null);
     }
-  }, [dataset.admin.features, regionIndex, selectedRegionId]);
+  }, [dataset.admin.features, regionIndex, selectedRegionId, t]);
 
   return (
-    <div className="map-shell relative h-[48vh] min-h-[340px] max-h-[calc(100vh-18rem)] overflow-hidden rounded-[28px] border border-white/10 bg-[#081119] shadow-[0_25px_90px_rgba(2,6,12,0.4)] md:h-[56vh] md:min-h-[420px] xl:h-full xl:min-h-0 xl:max-h-none">
+    <div className="map-shell relative h-full w-full overflow-hidden bg-[#081119]">
       <div id="map-root" ref={mapRootRef} className="h-full w-full" />
 
       {!isMapReady ? (
@@ -549,21 +808,55 @@ export function MapView({
           <div className="flex max-w-[320px] flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/5 px-6 py-5 text-center text-[#eef4fa] shadow-[0_24px_80px_rgba(2,6,12,0.36)] backdrop-blur-md">
             <div className="map-loader h-10 w-10 rounded-full border-2 border-white/15 border-t-[#f0c170]" />
             <div className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e8bd78]">
-              Chargement de la carte
+              {t("demo.mapLoaderTitle")}
             </div>
             <div className="text-sm leading-6 text-[#d1dce6]">
-              Initialisation du fond, des régions prioritaires et des couches
-              terrain.
+              {t("demo.mapLoaderBody")}
             </div>
           </div>
         </div>
       ) : null}
 
-      {detail ? (
-        <div className="pointer-events-none absolute bottom-4 left-4 right-4 max-w-[340px] rounded-2xl border border-white/12 bg-[#08111a]/90 px-4 py-3 text-sm text-[#f4efe7] shadow-[0_14px_40px_rgba(2,6,12,0.3)] backdrop-blur-md md:left-5 md:right-auto">
-          <div className="font-semibold text-[#fff5e6]">{detail.title}</div>
-          <div className="mt-1 text-[#d7dee5]">{detail.line1}</div>
-          {detail.line2 ? <div className="text-[#d7dee5]">{detail.line2}</div> : null}
+      {detail && tooltipPosition ? (
+        <div
+          className="pointer-events-none absolute z-20 max-w-[320px] -translate-y-[110%] rounded-2xl border border-white/12 bg-[#0b131d]/94 px-4 py-3 text-sm text-[#f4efe7] shadow-[0_18px_50px_rgba(2,6,12,0.34)] backdrop-blur-md"
+          style={{
+            left: `clamp(12px, ${tooltipPosition.x + 14}px, calc(100% - 332px))`,
+            top: `clamp(84px, ${tooltipPosition.y - 8}px, calc(100% - 24px))`,
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className={[
+                "mt-1 inline-flex h-2.5 w-2.5 shrink-0 rounded-full",
+                detail.accent === "amber"
+                  ? "bg-[#f0c170]"
+                  : detail.accent === "blue"
+                    ? "bg-[#3f93ff]"
+                    : "bg-[#94a3b8]",
+              ].join(" ")}
+            />
+            <div className="min-w-0">
+              <div className="font-semibold text-[#fff8ee]">{detail.title}</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {detail.badges.filter(Boolean).map((badge) => (
+                  <span
+                    key={badge}
+                    className={[
+                      "rounded-full border px-2.5 py-1 text-xs font-medium",
+                      detail.accent === "amber"
+                        ? "border-[#f0c17033] bg-[#f0c1701a] text-[#ffe0a7]"
+                        : detail.accent === "blue"
+                          ? "border-[#3f93ff33] bg-[#3f93ff1a] text-[#cfe2ff]"
+                          : "border-white/10 bg-white/[0.05] text-[#d7dee5]",
+                    ].join(" ")}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
