@@ -32,11 +32,11 @@ export function PanelSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[20px] border border-white/8 bg-white/[0.035] p-4">
+    <section className="rounded-[16px] border border-white/8 bg-white/[0.035] p-3 md:rounded-[20px] md:p-4">
       <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
         {title}
       </div>
-      <div className="mt-3">{children}</div>
+      <div className="mt-2 md:mt-3">{children}</div>
     </section>
   );
 }
@@ -51,7 +51,7 @@ export function ToggleRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
+    <label className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.04] px-3 py-2 md:rounded-2xl md:py-2.5">
       <span className="text-sm text-[#e7eef5]">{label}</span>
       <input
         type="checkbox"
@@ -90,24 +90,26 @@ export function MobileSheet({
       />
       <div
         className={cx(
-          "fixed inset-x-0 bottom-0 z-50 rounded-t-[28px] border border-white/10 bg-[#08131e]/98 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-20px_80px_rgba(2,6,12,0.45)] transition-transform md:hidden",
+          "fixed inset-x-2 bottom-2 z-50 rounded-[22px] border border-white/10 bg-[#08131e]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-20px_80px_rgba(2,6,12,0.42)] transition-transform md:hidden",
           open ? "translate-y-0" : "translate-y-full",
         )}
       >
-        <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/15" />
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#85b8e5]">
-            {title}
+        <div className="mx-auto mb-2 h-1 w-12 rounded-full bg-white/15" />
+        {title ? (
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#85b8e5]">
+              {title}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-[#e6edf4]"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-[#e6edf4]"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="panel-scroll max-h-[68vh] overflow-y-auto pb-2">{children}</div>
+        ) : null}
+        <div className="panel-scroll max-h-[44vh] overflow-y-auto pb-1">{children}</div>
       </div>
     </>
   );

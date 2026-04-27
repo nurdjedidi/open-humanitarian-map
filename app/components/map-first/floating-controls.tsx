@@ -80,7 +80,7 @@ function TimelineBlock({
   if (timelineYears.length <= 1) return null;
 
   return (
-    <div className="mb-4 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3">
+    <div className="mb-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5 md:mb-4 md:py-3">
       <div className="mb-1 flex items-center justify-between gap-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#85b8e5]">
           {t("demo.timelineLabel")}
@@ -108,7 +108,7 @@ function TimelineBlock({
         <span>{timelineYears[timelineYears.length - 1]}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 md:hidden">
+      <div className="mt-2 grid grid-cols-2 gap-2 md:hidden">
         <button
           type="button"
           disabled={!canStepBackward}
@@ -145,10 +145,12 @@ function TimelineBlock({
         </button>
       </div>
 
-      <p className="mt-3 text-xs leading-5 text-[#96abbb]">{t("demo.timelineHint")}</p>
+      <p className="mt-3 hidden text-xs leading-5 text-[#96abbb] md:block">
+        {t("demo.timelineHint")}
+      </p>
 
       {timelineFallbacks.length ? (
-        <p className="mt-2 rounded-xl border border-[#d98a35]/20 bg-[#d98a35]/8 px-2.5 py-2 text-xs leading-5 text-[#f2d4a0]">
+        <p className="mt-2 rounded-xl border border-[#d98a35]/20 bg-[#d98a35]/8 px-2.5 py-1.5 text-[11px] leading-4 text-[#f2d4a0] md:py-2 md:text-xs md:leading-5">
           {t("demo.timelineFallbackNote", {
             details: timelineFallbacks
               .map((item) => `${item.countryName}: ${item.latestYear}`)
@@ -209,7 +211,7 @@ function PanelContent({
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between gap-3 px-1">
+      <div className="mb-2 flex items-center justify-between gap-3 px-1 md:mb-3">
         <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
           {activePanel === "layers"
             ? t("demo.layers")
@@ -227,7 +229,7 @@ function PanelContent({
       </div>
 
       {activePanel === "layers" ? (
-        <PanelSection title={t("demo.layers")}>
+          <PanelSection title={t("demo.layers")}>
           <TimelineBlock
             t={t}
             timelineYears={timelineYears}
@@ -236,7 +238,7 @@ function PanelContent({
             timelineFallbacks={timelineFallbacks}
           />
 
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             <ToggleRow label={t("demo.roads")} checked={showRoads} onChange={setShowRoads} />
             <ToggleRow label={t("demo.water")} checked={showWater} onChange={setShowWater} />
             <ToggleRow
@@ -246,8 +248,12 @@ function PanelContent({
             />
           </div>
 
-          <p className="mt-3 text-sm leading-6 text-[#96abbb]">{t("demo.layersHint")}</p>
-          <p className="mt-2 text-xs leading-5 text-[#7f98ab]">{t("demo.population2020Note")}</p>
+          <p className="mt-3 hidden text-sm leading-6 text-[#96abbb] md:block">
+            {t("demo.layersHint")}
+          </p>
+          <p className="mt-2 text-[11px] leading-4 text-[#7f98ab] md:text-xs md:leading-5">
+            {t("demo.population2020Note")}
+          </p>
         </PanelSection>
       ) : null}
 
