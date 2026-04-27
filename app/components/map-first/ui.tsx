@@ -67,18 +67,24 @@ export function MobileSheet({
   title,
   onClose,
   children,
+  withBackdrop = true,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
+  withBackdrop?: boolean;
 }) {
   return (
     <>
       <div
         className={cx(
           "fixed inset-0 z-40 bg-[#02060bcc] backdrop-blur-sm transition md:hidden",
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+          withBackdrop
+            ? open
+              ? "pointer-events-auto opacity-100"
+              : "pointer-events-none opacity-0"
+            : "pointer-events-none opacity-0",
         )}
         onClick={onClose}
       />
