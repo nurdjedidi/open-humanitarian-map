@@ -25,6 +25,11 @@ export const messages = {
       roads: "Routes principales",
       water: "Points d’eau",
       settlements: "Lieux habités",
+      timelineLabel: "Timeline IPC",
+      timelineHint:
+        "Fais glisser pour relire les snapshots IPC du plus ancien au plus récent.",
+      population2020Note:
+        "Population de référence: raster WorldPop 2020 agrégé par région.",
       layersHint:
         "Les routes restent visibles par défaut. L’eau et les lieux habités deviennent plus utiles en zoomant.",
       basemap: "Fond de carte",
@@ -95,6 +100,11 @@ export const messages = {
       roads: "Main roads",
       water: "Water points",
       settlements: "Settlements",
+      timelineLabel: "IPC timeline",
+      timelineHint:
+        "Use the slider to move from the oldest to the most recent IPC snapshot.",
+      population2020Note:
+        "Population reference: WorldPop 2020 raster aggregated by region.",
       layersHint:
         "Roads stay visible by default. Water and settlements become more useful as you zoom in.",
       basemap: "Basemap",

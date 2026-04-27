@@ -75,6 +75,9 @@ export function FloatingSidePanel({
   basemaps,
   basemapLabel,
   legend,
+  timelineYears,
+  activeYear,
+  setActiveYear,
 }: {
   activePanel: FloatingPanelId;
   setActivePanel: (value: FloatingPanelId) => void;
@@ -93,8 +96,13 @@ export function FloatingSidePanel({
   basemaps: Array<{ id: BasemapId; label: string; description: string }>;
   basemapLabel: (id: BasemapId) => { label: string; description: string };
   legend: ResolvedLegendItem[];
+  timelineYears: number[];
+  activeYear: number | null;
+  setActiveYear: (value: number | null) => void;
 }) {
   const { t } = useI18n();
+  const activeYearIndex =
+    activeYear === null ? Math.max(0, timelineYears.length - 1) : Math.max(0, timelineYears.indexOf(activeYear));
 
   if (!activePanel) return null;
 
@@ -120,6 +128,37 @@ export function FloatingSidePanel({
 
         {activePanel === "layers" ? (
           <PanelSection title={t("demo.layers")}>
+            {timelineYears.length > 1 ? (
+              <div className="mb-4 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#85b8e5]">
+                    {t("demo.timelineLabel")}
+                  </div>
+                  <div className="rounded-full border border-[#d98a35]/35 bg-[#d98a35]/12 px-2.5 py-1 text-xs font-semibold text-[#ffd38b]">
+                    {activeYear ?? timelineYears[timelineYears.length - 1]}
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, timelineYears.length - 1)}
+                  step={1}
+                  value={activeYearIndex}
+                  onChange={(event) => {
+                    const nextIndex = Number(event.target.value);
+                    setActiveYear(timelineYears[nextIndex] ?? null);
+                  }}
+                  className="ohm-range mt-2 w-full"
+                />
+                <div className="mt-2 flex items-center justify-between text-[11px] text-[#8fa8bb]">
+                  <span>{timelineYears[0]}</span>
+                  <span>{timelineYears[timelineYears.length - 1]}</span>
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[#96abbb]">
+                  {t("demo.timelineHint")}
+                </p>
+              </div>
+            ) : null}
             <div className="space-y-3">
               <ToggleRow
                 label={t("demo.roads")}
@@ -139,6 +178,9 @@ export function FloatingSidePanel({
             </div>
             <p className="mt-3 text-sm leading-6 text-[#96abbb]">
               {t("demo.layersHint")}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-[#7f98ab]">
+              {t("demo.population2020Note")}
             </p>
           </PanelSection>
         ) : null}

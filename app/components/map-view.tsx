@@ -82,12 +82,14 @@ function adminBorderColor(
   isSelected: boolean,
   droneMode: boolean,
 ): [number, number, number, number] {
-  if (isSelected) return [248, 250, 252, droneMode ? 225 : 245];
-  return droneMode ? [64, 64, 70, 110] : [56, 56, 62, 190];
+  if (isSelected) return [255, 255, 255, droneMode ? 230 : 255];
+  // More visible and sharper for admin boundaries
+  return droneMode ? [100, 105, 120, 130] : [110, 115, 130, 210];
 }
 
 function roadLineColor(droneMode: boolean): [number, number, number, number] {
-  return droneMode ? [88, 88, 96, 90] : [80, 80, 86, 145];
+  // Softer and more contextual for roads
+  return droneMode ? [120, 120, 125, 90] : [130, 130, 135, 110];
 }
 
 function osmPointAlpha(droneMode: boolean, baseAlpha: number) {
@@ -475,8 +477,8 @@ export function MapView({
               ? 2.6
               : 3.6
             : droneMode
-              ? 0.9
-              : 1.2,
+              ? 0.7
+              : 1.0,
         getLineColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
           adminBorderColor(feature.properties?.feature_id === selectedRegionId, droneMode),
         getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
@@ -552,7 +554,7 @@ export function MapView({
           stroked: true,
           filled: false,
           lineWidthMinPixels: 1,
-          getLineWidth: zoom >= 9 ? (droneMode ? 1.5 : 2.2) : droneMode ? 0.85 : 1.3,
+          getLineWidth: zoom >= 9 ? (droneMode ? 1.5 : 2.2) : droneMode ? 0.6 : 0.9,
           getLineColor: roadLineColor(droneMode),
           updateTriggers: { getLineWidth: [zoom, droneMode], getLineColor: [droneMode] },
           beforeId: labelLayerId ?? undefined,
@@ -856,7 +858,7 @@ export function MapView({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [dataset.admin]);
+  }, []);
 
   useEffect(() => {
     overlayRef.current?.setProps({ layers });

@@ -91,6 +91,21 @@ export type RegionRecord = {
   ipcShareP3Plus: number | null;
 };
 
+export type RegionTimelineEntry = {
+  year: number | null;
+  label: string;
+  type: string;
+  phase: number | null;
+  p3plus: number | null;
+  population: number | null;
+  shareP3Plus: number | null;
+};
+
+export type RegionDetail = RegionRecord & {
+  countryName: string;
+  history: RegionTimelineEntry[];
+};
+
 export type MapDataset = {
   id: string;
   slug: string;
@@ -408,6 +423,49 @@ function regionRecordFromFeature(feature: Feature<Geometry, GeoJsonProperties>):
   };
 }
 
+function parseHistoryPayload(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
+  }
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function timelineEntriesFromFeature(feature: Feature<Geometry, GeoJsonProperties>): RegionTimelineEntry[] {
+  const props = feature.properties ?? {};
+  const historyKey = Object.keys(props).find((key) => key.endsWith("_history"));
+  if (!historyKey) return [];
+
+  return parseHistoryPayload(props[historyKey])
+    .map((entry) => {
+      const year = asNumber(entry.reference_year ?? entry.exercise_year);
+      const p3plus = asNumber(entry.phase35 ?? entry.phase3) ?? 0;
+      const population = asNumber(entry.population);
+      return {
+        year,
+        label: asString(entry.reference_label || entry.exercise_label, year ? String(year) : "n/a"),
+        type: asString(entry.chtype, "n/a"),
+        phase: asNumber(entry.phase_class),
+        p3plus,
+        population,
+        shareP3Plus:
+          population && population > 0 && p3plus !== null
+            ? p3plus / population
+            : null,
+      };
+    })
+    .sort((left, right) => (left.year ?? 0) - (right.year ?? 0));
+}
+
 function resolveTopRegions(manifest: ManifestLike, admin: FeatureCollection): RegionRecord[] {
   const summaryRegions = manifest.summary?.top_regions;
   const adminRecords = admin.features.map(regionRecordFromFeature);
@@ -614,4 +672,23 @@ export function getDatasetBySlug(slug: string | null | undefined): MapDataset | 
 
 export function getDefaultDataset(): MapDataset {
   return combinedDataset;
+}
+
+export function getRegionDetail(
+  dataset: MapDataset,
+  featureId: string | null | undefined,
+): RegionDetail | null {
+  if (!featureId) return null;
+  const feature = dataset.admin.features.find(
+    (item) => asString(item.properties?.feature_id) === featureId,
+  );
+  if (!feature) return null;
+
+  const props = feature.properties ?? {};
+  const base = regionRecordFromFeature(feature);
+  return {
+    ...base,
+    countryName: asString(props.country_name || props.adm0_name, "n/a"),
+    history: timelineEntriesFromFeature(feature),
+  };
 }

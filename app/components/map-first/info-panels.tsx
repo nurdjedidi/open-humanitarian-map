@@ -66,6 +66,7 @@ export function InfoContent({ activeInfoTab }: { activeInfoTab: InfoTab }) {
           <li>{t("demo.sourceOsm")}</li>
           <li>{t("demo.sourceIpc")}</li>
           <li>{t("demo.sourceBoundaries")}</li>
+          <li>{t("demo.population2020Note")}</li>
         </ul>
       </div>
     );

@@ -20,6 +20,7 @@ function SourcesContent() {
       <p>{t("info.sourceOsm")}</p>
       <p>{t("info.sourceIpc")}</p>
       <p>{t("info.sourceBoundaries")}</p>
+      <p>{t("demo.population2020Note")}</p>
     </InfoPage>
   );
 }

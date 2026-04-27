@@ -1,87 +1,103 @@
-# Welcome to React Router!
+# OHM Web
 
-A modern, production-ready template for building full-stack React applications using React Router.
+`LP/` contient l’application web de **OHM — Open Humanitarian Map**.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+L’objectif n’est pas de faire une landing page marketing, mais une **carte opérationnelle** qui permet de lire rapidement :
 
-## Features
+- où la priorité humanitaire est la plus forte
+- comment cette priorité évolue dans le temps
+- quel est le contexte terrain autour des zones concernées
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## Ce que montre l’app
 
-## Getting Started
+L’application web affiche :
 
-### Installation
+- une couche principale de priorité par région
+- des couches contextuelles activables
+- une timeline IPC par année
+- des pages d’information séparées
 
-Install the dependencies:
+## Ce que la couleur signifie
+
+La couleur principale ne représente pas seulement une phase IPC brute.
+
+Elle représente une **priorité d’intervention** calculée à partir de :
+
+- la phase IPC
+- le nombre de personnes en P3+
+- la part de population en P3+
+- un peu de contexte additionnel si disponible
+
+Donc une région peut être visuellement prioritaire même si sa phase dominante n’est pas la plus élevée.
+
+## Lancer l’app
 
 ```bash
 npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
 npm run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
+Puis ouvrir :
 
-## Building for Production
+```text
+http://localhost:5173
+```
 
-Create a production build:
+## Build
 
 ```bash
 npm run build
 ```
 
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
+## Vérification TypeScript
 
 ```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
+npm run typecheck
 ```
 
-The containerized application can be deployed to any platform that supports Docker, including:
+## Données
 
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
+L’app charge les manifests et GeoJSON depuis :
 
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
+```text
+public/data/
 ```
 
-## Styling
+En local, un script de publication peut reconstruire un jeu de données web propre à partir de `data/outputs` :
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+```bash
+python ..\tools\publish_web_data.py
+```
 
----
+Ce script :
 
-Built with ❤️ using React Router.
+- garde uniquement un jeu `current` par pays
+- enlève les couches inutiles pour le front public
+- reconstruit `public/data/index.json`
+
+Pour la production, l’app peut aussi lire une base distante, par exemple un bucket R2, via :
+
+```text
+VITE_OHM_DATA_BASE_URL=https://<ton-endpoint>/ohm-data
+```
+
+Chaque pays peut contenir :
+
+- un manifest principal
+- un GeoJSON admin enrichi
+- des couches OSM séparées
+
+## Stack
+
+- React Router
+- TypeScript
+- MapLibre GL
+- deck.gl
+
+## Note produit
+
+Cette app est pensée comme une interface **map-first** :
+
+- la carte est l’élément principal
+- les panneaux restent secondaires
+- les détails et les sources doivent aider la lecture, pas concurrencer la carte
