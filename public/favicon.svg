@@ -1,0 +1,45 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pinGradient" x1="256" y1="48" x2="256" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="55%" stop-color="#0369A1"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <linearGradient id="dropGradient" x1="256" y1="150" x2="256" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="80" y="430" width="352" height="60" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="256" cy="458" rx="86" ry="16" fill="#0F172A" opacity="0.16" filter="url(#softShadow)" />
+
+  <path
+    d="M256 40C168.6 40 98 110.6 98 198C98 315.5 256 472 256 472C256 472 414 315.5 414 198C414 110.6 343.4 40 256 40Z"
+    fill="url(#pinGradient)"
+  />
+
+  <path
+    d="M256 112C256 112 188 192 170 243C149 303 192 364 256 364C320 364 363 303 342 243C324 192 256 112 256 112Z"
+    fill="white"
+  />
+
+  <path
+    d="M256 160C256 160 208 222 194 262C177 311 211 344 256 344C301 344 335 311 318 262C304 222 256 160 256 160Z"
+    fill="url(#dropGradient)"
+  />
+
+  <circle cx="256" cy="294" r="22" fill="white" />
+
+  <path
+    d="M223 276C216 303 230 323 249 331"
+    stroke="white"
+    stroke-width="12"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+</svg>

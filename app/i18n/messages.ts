@@ -132,7 +132,8 @@ export const messages = {
       sourceIpc:
         "IPC – Integrated Food Security Phase Classification – © Government, CILSS, IPC, contributor: Food Security and Nutrition Working Group, West and Central Africa, via Humanitarian Data Exchange (CC BY).",
       sourceBoundaries:
-        "Senegal boundaries – © Government of Senegal, updated by OCHA/ROWCA, via Humanitarian Data Exchange (CC BY-IGO).",
+        "Senegal boundaries – © Government of Senegal, updated by OCHA/ROWCA, via Humanitarian Data Exchange (CC BY-IGO). " +
+        "Gambia boundaries - © Gambia National Disaster Management Agency(NDMA), via Humanitarian Data Exchange (CC BY-IGO).",
       contactTitle: "Contact",
       contactBody:
         "To discuss a pilot, an adaptation to another country, or an NGO/operations use case, you can use the links below.",

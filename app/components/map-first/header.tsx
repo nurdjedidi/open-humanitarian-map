@@ -35,8 +35,8 @@ export function MapFirstHeader({
     <header className="absolute inset-x-0 top-0 z-30 px-3 pt-3 md:px-4 md:pt-4">
       <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-[#08131e]/90 px-4 py-3 shadow-[0_18px_60px_rgba(2,6,12,0.32)] backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#1b3955] text-sm font-black text-[#91c7ff]">
-            {t("common.brandShort")}
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#08131e]/40 p-1">
+            <img src="/favicon.svg" alt="Logo" className="h-full w-full object-contain" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.22em] text-[#84b7e4]">

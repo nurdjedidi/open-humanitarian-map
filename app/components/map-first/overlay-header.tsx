@@ -25,8 +25,8 @@ export function OverlayHeader({
       <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-3 py-3 md:px-4 md:py-4">
         {/* Left Block: Brand & Title */}
         <div className="flex min-w-0 items-center gap-2 rounded-[22px] border border-white/10 bg-[#08131e]/88 px-3 py-2.5 shadow-[0_18px_60px_rgba(2,6,12,0.32)] backdrop-blur-xl md:gap-3 md:px-4 md:py-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1b3955] text-[10px] font-black text-[#91c7ff] md:h-11 md:w-11 md:rounded-2xl md:text-sm">
-            {t("common.brandShort")}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#08131e]/40 p-1 md:h-11 md:w-11 md:rounded-2xl">
+            <img src="/favicon.svg" alt="Logo" className="h-full w-full object-contain" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-[#84b7e4] md:text-[11px] md:tracking-[0.22em]">
@@ -83,8 +83,8 @@ export function OverlayHeader({
           {/* Menu Content */}
           <div className="absolute right-3 top-3 w-[280px] max-w-[calc(100vw-24px)] rounded-[32px] border border-white/12 bg-[#0a1622]/98 p-6 shadow-[0_32px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
             <div className="mb-8 flex items-center justify-between">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1b3955] text-[10px] font-black text-[#91c7ff]">
-                {t("common.brandShort")}
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-[#1b3955]/10 p-1">
+                <img src="/favicon.svg" alt="Logo" className="h-full w-full object-contain" />
               </div>
               <button
                 type="button"
