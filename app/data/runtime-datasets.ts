@@ -580,6 +580,38 @@ export async function loadCombinedDataset(): Promise<MapDataset> {
   };
 }
 
+export function getTimelineFallbackSummary(
+  dataset: MapDataset,
+  year: number | null,
+): Array<{ countryName: string; latestYear: number }> {
+  if (year === null) return [];
+
+  const byCountry = new Map<string, { countryName: string; latestYear: number }>();
+
+  for (const feature of dataset.admin.features) {
+    const props = feature.properties ?? {};
+    const countryName = asString(props.country_name || props.adm0_name, "Zone");
+    const countryKey = asString(props.country_slug || props.adm0_name || countryName, countryName);
+    const latestYear = Math.max(
+      -Infinity,
+      ...timelineEntriesFromFeature(feature)
+        .map((entry) => entry.year)
+        .filter((entryYear): entryYear is number => typeof entryYear === "number" && Number.isFinite(entryYear)),
+    );
+
+    if (!Number.isFinite(latestYear) || latestYear >= year) continue;
+
+    const current = byCountry.get(countryKey);
+    if (!current || latestYear > current.latestYear) {
+      byCountry.set(countryKey, { countryName, latestYear });
+    }
+  }
+
+  return Array.from(byCountry.values()).sort((left, right) =>
+    left.countryName.localeCompare(right.countryName),
+  );
+}
+
 export function getRegionDetail(
   dataset: MapDataset,
   featureId: string | null | undefined,
@@ -621,9 +653,20 @@ function pickTimelineEntryForYear(
   entries: RegionTimelineEntry[],
   year: number,
 ): RegionTimelineEntry | null {
-  const matches = entries.filter((entry) => entry.year === year);
-  if (!matches.length) return null;
-  return matches[matches.length - 1] ?? null;
+  const exactMatches = entries.filter((entry) => entry.year === year);
+  if (exactMatches.length) {
+    return exactMatches[exactMatches.length - 1] ?? null;
+  }
+
+  const previousMatches = entries
+    .filter((entry) => typeof entry.year === "number" && (entry.year ?? 0) <= year)
+    .sort((left, right) => (left.year ?? 0) - (right.year ?? 0));
+
+  if (previousMatches.length) {
+    return previousMatches[previousMatches.length - 1] ?? null;
+  }
+
+  return null;
 }
 
 function decorateFeatureForYear(

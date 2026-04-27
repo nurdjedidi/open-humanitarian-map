@@ -28,6 +28,8 @@ export const messages = {
       timelineLabel: "Timeline IPC",
       timelineHint:
         "Fais glisser pour relire les snapshots IPC du plus ancien au plus récent.",
+      timelineFallbackNote:
+        "Certaines zones n'ont pas de donnée pour cette année. Dernière donnée utilisée: {details}.",
       population2020Note:
         "Population de référence: raster WorldPop 2020 agrégé par région.",
       layersHint:
@@ -103,6 +105,8 @@ export const messages = {
       timelineLabel: "IPC timeline",
       timelineHint:
         "Use the slider to move from the oldest to the most recent IPC snapshot.",
+      timelineFallbackNote:
+        "Some areas do not have data for this year. Latest available data used: {details}.",
       population2020Note:
         "Population reference: WorldPop 2020 raster aggregated by region.",
       layersHint:

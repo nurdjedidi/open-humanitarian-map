@@ -78,6 +78,7 @@ export function FloatingSidePanel({
   timelineYears,
   activeYear,
   setActiveYear,
+  timelineFallbacks,
 }: {
   activePanel: FloatingPanelId;
   setActivePanel: (value: FloatingPanelId) => void;
@@ -99,6 +100,7 @@ export function FloatingSidePanel({
   timelineYears: number[];
   activeYear: number | null;
   setActiveYear: (value: number | null) => void;
+  timelineFallbacks: Array<{ countryName: string; latestYear: number }>;
 }) {
   const { t } = useI18n();
   const activeYearIndex =
@@ -157,6 +159,15 @@ export function FloatingSidePanel({
                 <p className="mt-3 text-xs leading-5 text-[#96abbb]">
                   {t("demo.timelineHint")}
                 </p>
+                {timelineFallbacks.length ? (
+                  <p className="mt-2 rounded-xl border border-[#d98a35]/20 bg-[#d98a35]/8 px-2.5 py-2 text-xs leading-5 text-[#f2d4a0]">
+                    {t("demo.timelineFallbackNote", {
+                      details: timelineFallbacks
+                        .map((item) => `${item.countryName}: ${item.latestYear}`)
+                        .join(" · "),
+                    })}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             <div className="space-y-3">

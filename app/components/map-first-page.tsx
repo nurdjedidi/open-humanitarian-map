@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { MapDataset } from "~/data/datasets";
 import {
   getRegionDetail,
+  getTimelineFallbackSummary,
   getTimelineYears,
   loadCombinedDataset,
   projectDatasetForYear,
@@ -73,6 +74,10 @@ export function MapFirstPage() {
     () => (dataset && activeYear !== null ? projectDatasetForYear(dataset, activeYear) : dataset),
     [dataset, activeYear],
   );
+  const timelineFallbacks = useMemo(
+    () => (dataset ? getTimelineFallbackSummary(dataset, activeYear) : []),
+    [dataset, activeYear],
+  );
 
   if (loadError) {
     return (
@@ -134,6 +139,7 @@ export function MapFirstPage() {
         timelineYears={timelineYears}
         activeYear={activeYear}
         setActiveYear={setActiveYear}
+        timelineFallbacks={timelineFallbacks}
       />
 
       <RegionTimelinePanel
