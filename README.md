@@ -2,35 +2,31 @@
 
 `LP/` contient l’application web de **OHM — Open Humanitarian Map**.
 
-L’objectif n’est pas de faire une landing page marketing, mais une **carte opérationnelle** qui permet de lire rapidement :
+L’objectif est simple : proposer une **carte interactive claire et utile**, pensée pour des ONG, des équipes opérations et des personnes qui ont besoin de comprendre rapidement **où agir en priorité**.
 
-- où la priorité humanitaire est la plus forte
-- comment cette priorité évolue dans le temps
-- quel est le contexte terrain autour des zones concernées
+## Ce que permet l’app
 
-## Ce que montre l’app
+L’app web permet de :
 
-L’application web affiche :
+- visualiser les zones prioritaires sur une carte
+- lire l’évolution IPC dans le temps
+- afficher ou masquer des couches de contexte
+- passer d’une lecture régionale à une lecture plus terrain
 
-- une couche principale de priorité par région
-- des couches contextuelles activables
-- une timeline IPC par année
-- des pages d’information séparées
+## Ce que montre la carte
 
-## Ce que la couleur signifie
+La couche principale affiche une **priorité d’intervention**.
 
-La couleur principale ne représente pas seulement une phase IPC brute.
-
-Elle représente une **priorité d’intervention** calculée à partir de :
+Cette priorité ne correspond pas seulement à une phase IPC brute. Elle combine notamment :
 
 - la phase IPC
 - le nombre de personnes en P3+
 - la part de population en P3+
-- un peu de contexte additionnel si disponible
+- du contexte terrain quand il est disponible
 
-Donc une région peut être visuellement prioritaire même si sa phase dominante n’est pas la plus élevée.
+L’idée est de produire une lecture plus utile pour l’action qu’une simple carte thématique isolée.
 
-## Lancer l’app
+## Lancer l’app en local
 
 ```bash
 npm install
@@ -55,15 +51,15 @@ npm run build
 npm run typecheck
 ```
 
-## Données
+## D’où viennent les données
 
-L’app charge les manifests et GeoJSON depuis :
+En développement, l’app peut lire des fichiers publiés dans :
 
 ```text
 public/data/
 ```
 
-En local, un script de publication peut reconstruire un jeu de données web propre à partir de `data/outputs` :
+Un script permet de reconstruire un jeu de données web propre à partir des exports du pipeline Python :
 
 ```bash
 python ..\tools\publish_web_data.py
@@ -71,21 +67,15 @@ python ..\tools\publish_web_data.py
 
 Ce script :
 
-- garde uniquement un jeu `current` par pays
-- enlève les couches inutiles pour le front public
+- garde un jeu `current` par pays
 - reconstruit `public/data/index.json`
+- prépare des fichiers plus propres pour le front
 
-Pour la production, l’app peut aussi lire une base distante, par exemple un bucket R2, via :
+En production, l’app peut aussi lire les données depuis un stockage distant, par exemple un bucket R2, via :
 
 ```text
-VITE_OHM_DATA_BASE_URL=https://<ton-endpoint>/ohm-data
+VITE_OHM_DATA_BASE_URL=https://<ton-endpoint>/data
 ```
-
-Chaque pays peut contenir :
-
-- un manifest principal
-- un GeoJSON admin enrichi
-- des couches OSM séparées
 
 ## Stack
 
@@ -94,10 +84,14 @@ Chaque pays peut contenir :
 - MapLibre GL
 - deck.gl
 
-## Note produit
+## Intention produit
 
-Cette app est pensée comme une interface **map-first** :
+OHM Web n’est pas une vitrine marketing.
+
+C’est une interface **map-first** :
 
 - la carte est l’élément principal
-- les panneaux restent secondaires
-- les détails et les sources doivent aider la lecture, pas concurrencer la carte
+- les contrôles doivent rester légers
+- les détails doivent aider la lecture, pas encombrer l’écran
+
+Si tu veux comprendre le projet dans son ensemble, regarde aussi le [README racine](../README.md).

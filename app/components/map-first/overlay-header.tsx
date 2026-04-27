@@ -23,7 +23,6 @@ export function OverlayHeader({
   return (
     <>
       <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-3 py-3 md:px-4 md:py-4">
-        {/* Left Block: Brand & Title */}
         <div className="flex min-w-0 items-center gap-2 rounded-[22px] border border-white/10 bg-[#08131e]/88 px-3 py-2.5 shadow-[0_18px_60px_rgba(2,6,12,0.32)] backdrop-blur-xl md:gap-3 md:px-4 md:py-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#08131e]/40 p-1 md:h-11 md:w-11 md:rounded-2xl">
             <img src="/favicon.svg" alt="Logo" className="h-full w-full object-contain" />
@@ -38,7 +37,6 @@ export function OverlayHeader({
           </div>
         </div>
 
-        {/* Right Block: Desktop Nav & Lang / Mobile Menu Trigger */}
         <div className="flex items-center gap-2 rounded-[22px] border border-white/10 bg-[#08131e]/88 px-2 py-2 shadow-[0_18px_60px_rgba(2,6,12,0.32)] backdrop-blur-xl md:px-3">
           <nav className="hidden items-center gap-2 md:flex">
             {navLinks.map((link) => {
