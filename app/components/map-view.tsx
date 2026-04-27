@@ -1,4 +1,4 @@
-import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type {
   Feature,
   FeatureCollection,
