@@ -228,7 +228,7 @@ export function ContributionControls({
       ) : null}
 
       {feedback ? (
-        <div className="pointer-events-none fixed inset-x-3 bottom-3 z-[65] mx-auto flex max-w-md items-center gap-2 rounded-2xl border border-white/10 bg-[#0a1420]/94 px-3 py-2 text-sm text-[#dcebf6] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:bottom-5">
+        <div className="pointer-events-none fixed inset-x-3 top-[92px] z-[65] mx-auto flex max-w-md items-center gap-2 rounded-2xl border border-white/10 bg-[#0a1420]/94 px-3 py-2 text-sm text-[#dcebf6] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:top-[104px]">
           <ShieldCheck className="h-4 w-4 shrink-0 text-[#8bd7a6]" />
           <span>{feedback}</span>
         </div>

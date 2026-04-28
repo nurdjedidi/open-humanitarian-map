@@ -65,7 +65,7 @@ export function RegionTimelinePanel({
   if (!region) return null;
 
   return (
-    <aside className="pointer-events-auto absolute bottom-14 left-4 z-30 w-[360px] max-w-[calc(100vw-32px)] rounded-[26px] border border-white/10 bg-[#0a1420]/94 p-4 shadow-[0_24px_80px_rgba(2,6,12,0.38)] backdrop-blur-xl md:bottom-4">
+    <aside className="pointer-events-auto absolute bottom-24 left-4 z-30 w-[360px] max-w-[calc(100vw-32px)] rounded-[26px] border border-white/10 bg-[#0a1420]/94 p-4 shadow-[0_24px_80px_rgba(2,6,12,0.38)] backdrop-blur-xl md:bottom-8">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8fb7da]">
