@@ -36,7 +36,7 @@ type SelectionDetail =
       id: string;
       title: string;
       badges: [string, string?];
-      accent: "blue" | "slate";
+      accent: "blue" | "slate" | "green";
     };
 
 type TooltipPosition = {
@@ -67,6 +67,10 @@ type MapViewProps = {
   viewMode: ViewMode;
   droneMode: boolean;
   selectedRegionId?: string | null;
+  contributionMode?: boolean;
+  contributions?: FeatureCollection;
+  pendingContributionCoordinate?: [number, number] | null;
+  onMapClick?: (coordinate: [number, number]) => void;
   onRegionHover?: (region: RegionRecord | null) => void;
   onRegionSelect?: (region: RegionRecord | null) => void;
 };
@@ -94,6 +98,14 @@ function roadLineColor(droneMode: boolean): [number, number, number, number] {
 
 function osmPointAlpha(droneMode: boolean, baseAlpha: number) {
   return droneMode ? Math.max(70, Math.round(baseAlpha * 0.55)) : baseAlpha;
+}
+
+function contributionColor(type: unknown): [number, number, number, number] {
+  if (type === "water") return [45, 140, 255, 230];
+  if (type === "road" || type === "access") return [240, 193, 112, 230];
+  if (type === "ngo_presence") return [139, 215, 166, 230];
+  if (type === "alert") return [248, 92, 92, 235];
+  return [160, 180, 195, 220];
 }
 
 export const BASEMAPS: Array<{
@@ -399,6 +411,10 @@ export function MapView({
   viewMode,
   droneMode,
   selectedRegionId = null,
+  contributionMode = false,
+  contributions,
+  pendingContributionCoordinate = null,
+  onMapClick,
   onRegionHover,
   onRegionSelect,
 }: MapViewProps) {
@@ -407,6 +423,8 @@ export function MapView({
   const mapRef = useRef<any>(null);
   const overlayRef = useRef<any>(null);
   const basemapStyleRef = useRef<string | StyleSpecification | null>(null);
+  const contributionModeRef = useRef(contributionMode);
+  const onMapClickRef = useRef(onMapClick);
 
   const [zoom, setZoom] = useState(INITIAL_ZOOM);
   const [detail, setDetail] = useState<SelectionDetail | null>(null);
@@ -461,6 +479,11 @@ export function MapView({
     [dataset.layers.osm_settlements, settlementsLabel],
   );
   const countryLabels = useMemo(() => countryLabelRecords(dataset.admin), [dataset.admin]);
+
+  useEffect(() => {
+    contributionModeRef.current = contributionMode;
+    onMapClickRef.current = onMapClick;
+  }, [contributionMode, onMapClick]);
 
   const layers = useMemo(() => {
     const layers: any[] = [
@@ -532,6 +555,7 @@ export function MapView({
           setTooltipPosition({ x, y });
         },
         onClick: ({ object }: { object?: Feature<Geometry, GeoJsonProperties> | null }) => {
+          if (contributionMode) return;
           if (!object) return;
           const record = buildRegionRecord(object, regionFallbackReason);
           onRegionSelect?.(record);
@@ -747,10 +771,83 @@ export function MapView({
       );
     }
 
+    if (contributions) {
+      layers.push(
+        new GeoJsonLayer({
+          id: "field-contributions",
+          data: contributions,
+          pickable: true,
+          stroked: true,
+          filled: true,
+          pointRadiusMinPixels: 6,
+          pointRadiusMaxPixels: 12,
+          pointRadiusScale: 8,
+          getPointRadius: 70,
+          getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
+            contributionColor(feature.properties?.type),
+          getLineColor: [255, 255, 255, 235],
+          lineWidthMinPixels: 1,
+          parameters: { depthTest: false },
+          beforeId: labelLayerId ?? undefined,
+          autoHighlight: false,
+          onHover: ({
+            object,
+            x,
+            y,
+          }: {
+            object?: Feature<Geometry, GeoJsonProperties> | null;
+            x: number;
+            y: number;
+          }) => {
+            if (!object) {
+              setDetail(null);
+              setTooltipPosition(null);
+              return;
+            }
+            setDetail({
+              kind: "osm",
+              id: String(object.properties?.id ?? "contribution"),
+              title: "Contribution terrain",
+              badges: [
+                String(object.properties?.type ?? "terrain"),
+                String(object.properties?.value ?? "validated"),
+              ],
+              accent: "green",
+            });
+            setTooltipPosition({ x, y });
+          },
+        }),
+      );
+    }
+
+    if (pendingContributionCoordinate) {
+      layers.push(
+        new ScatterplotLayer({
+          id: "pending-field-contribution",
+          data: [pendingContributionCoordinate],
+          pickable: false,
+          getPosition: (item: [number, number]) => item,
+          getFillColor: [240, 193, 112, 230],
+          getLineColor: [255, 255, 255, 255],
+          stroked: true,
+          filled: true,
+          radiusScale: 8,
+          radiusMinPixels: 8,
+          radiusMaxPixels: 14,
+          getRadius: 85,
+          parameters: { depthTest: false },
+          beforeId: labelLayerId ?? undefined,
+        }),
+      );
+    }
+
     return layers;
   }, [
+    contributions,
+    contributionMode,
     dataset.admin,
     dataset.layers.osm_roads,
+    pendingContributionCoordinate,
     regionFallbackReason,
     selectedRegionId,
     settlementsLabel,
@@ -848,6 +945,10 @@ export function MapView({
       map.on("style.load", bindStyleState);
 
       map.on("zoomend", sync);
+      map.on("click", (event: any) => {
+        if (!contributionModeRef.current) return;
+        onMapClickRef.current?.([event.lngLat.lng, event.lngLat.lat]);
+      });
     };
 
     void run();
@@ -963,7 +1064,9 @@ export function MapView({
                   ? "bg-[#f0c170]"
                   : detail.accent === "blue"
                     ? "bg-[#3f93ff]"
-                    : "bg-[#94a3b8]",
+                    : detail.accent === "green"
+                      ? "bg-[#8bd7a6]"
+                      : "bg-[#94a3b8]",
               ].join(" ")}
             />
             <div className="min-w-0">
@@ -978,7 +1081,9 @@ export function MapView({
                         ? "border-[#f0c17033] bg-[#f0c1701a] text-[#ffe0a7]"
                         : detail.accent === "blue"
                           ? "border-[#3f93ff33] bg-[#3f93ff1a] text-[#cfe2ff]"
-                          : "border-white/10 bg-white/[0.05] text-[#d7dee5]",
+                          : detail.accent === "green"
+                            ? "border-[#8bd7a633] bg-[#8bd7a61a] text-[#dff8e8]"
+                            : "border-white/10 bg-white/[0.05] text-[#d7dee5]",
                     ].join(" ")}
                   >
                     {badge}

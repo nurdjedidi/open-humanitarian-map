@@ -1,6 +1,17 @@
 import { useI18n } from "~/i18n/use-i18n";
 import { useEffect, useMemo, useState } from "react";
+import type { FeatureCollection } from "geojson";
 
+import {
+  createContribution,
+  getCurrentUser,
+  getValidatedContributions,
+  type AuthState,
+  type ContributionType,
+} from "~/api/ohm-api";
+import { AdminReviewPanel } from "./contributions/admin-review-panel";
+import { AuthModal } from "./contributions/auth-modal";
+import { ContributionControls } from "./contributions/contribution-controls";
 import type { MapDataset } from "~/data/datasets";
 import {
   getRegionDetail,
@@ -27,6 +38,33 @@ export function MapFirstPage() {
   const [activePanel, setActivePanel] = useState<FloatingPanelId>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
+  const [auth, setAuth] = useState<AuthState | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [contributionMode, setContributionMode] = useState(false);
+  const [contributionPoint, setContributionPoint] = useState<[number, number] | null>(null);
+  const [contributionType, setContributionType] = useState<ContributionType>("access");
+  const [contributionValue, setContributionValue] = useState("accessible");
+  const [contributionFeedback, setContributionFeedback] = useState<string | null>(null);
+  const [contributionLoading, setContributionLoading] = useState(false);
+  const [contributions, setContributions] = useState<FeatureCollection | null>(null);
+
+  const refreshAuth = async () => {
+    try {
+      const next = await getCurrentUser();
+      setAuth(next);
+    } catch {
+      setAuth(null);
+    }
+  };
+
+  const refreshContributions = async () => {
+    try {
+      const next = await getValidatedContributions();
+      setContributions(next);
+    } catch {
+      setContributions({ type: "FeatureCollection", features: [] });
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +83,11 @@ export function MapFirstPage() {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    void refreshAuth();
+    void refreshContributions();
   }, []);
 
   const basemapLabel = (id: BasemapId) => {
@@ -79,6 +122,47 @@ export function MapFirstPage() {
     [dataset, activeYear],
   );
 
+  const setTypeAndDefaultValue = (nextType: ContributionType) => {
+    setContributionType(nextType);
+    const defaults: Record<ContributionType, string> = {
+      access: "accessible",
+      water: "functional",
+      road: "truck_ok",
+      ngo_presence: "active",
+      alert: "food_crisis",
+    };
+    setContributionValue(defaults[nextType]);
+  };
+
+  const submitContribution = async () => {
+    if (!auth) {
+      setAuthModalOpen(true);
+      return;
+    }
+    if (!contributionPoint) return;
+
+    setContributionLoading(true);
+    setContributionFeedback(null);
+    try {
+      await createContribution({
+        geometry: {
+          type: "Point",
+          coordinates: contributionPoint,
+        },
+        type: contributionType,
+        value: contributionValue,
+        confidence: 0.5,
+      });
+      setContributionFeedback("Contribution envoyée. Elle sera visible après validation.");
+      setContributionPoint(null);
+      setContributionMode(false);
+    } catch (error) {
+      setContributionFeedback(error instanceof Error ? error.message : "Envoi impossible.");
+    } finally {
+      setContributionLoading(false);
+    }
+  };
+
   if (loadError) {
     return (
       <main className="flex h-screen w-screen items-center justify-center bg-[#061019] px-6 text-[#e8eef5]">
@@ -107,6 +191,13 @@ export function MapFirstPage() {
           viewMode={viewMode}
           droneMode={droneMode}
           selectedRegionId={selectedRegionId}
+          contributionMode={contributionMode}
+          contributions={contributions ?? undefined}
+          pendingContributionCoordinate={contributionPoint}
+          onMapClick={(coordinate) => {
+            setContributionPoint(coordinate);
+            setContributionFeedback(null);
+          }}
           onRegionSelect={(region) => setSelectedRegionId(region?.id ?? null)}
         />
       </div>
@@ -145,6 +236,34 @@ export function MapFirstPage() {
       <RegionTimelinePanel
         region={getRegionDetail(dataset, selectedRegionId)}
         onClose={() => setSelectedRegionId(null)}
+      />
+
+      <ContributionControls
+        isAuthenticated={Boolean(auth)}
+        contributionMode={contributionMode}
+        selectedCoordinate={contributionPoint}
+        type={contributionType}
+        value={contributionValue}
+        feedback={contributionFeedback}
+        loading={contributionLoading}
+        onOpenAuth={() => setAuthModalOpen(true)}
+        onToggleMode={() => {
+          setContributionMode((current) => !current);
+          setContributionPoint(null);
+          setContributionFeedback(null);
+        }}
+        onTypeChange={setTypeAndDefaultValue}
+        onValueChange={setContributionValue}
+        onSubmit={submitContribution}
+        onCancelPoint={() => setContributionPoint(null)}
+      />
+
+      <AdminReviewPanel auth={auth} onReviewed={refreshContributions} />
+
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthenticated={refreshAuth}
       />
     </main>
   );
