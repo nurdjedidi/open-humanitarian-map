@@ -1,9 +1,7 @@
 import type { FeatureCollection, Geometry } from "geojson";
 
-const API_BASE_URL = (import.meta.env.VITE_OHM_API_URL ?? "http://localhost:3000").replace(
-  /\/$/,
-  "",
-);
+const API_BASE_URL = (import.meta.env.VITE_OHM_API_URL ?? "").trim().replace(/\/$/, "");
+export const OHM_API_ENABLED = API_BASE_URL.length > 0;
 
 export type AuthProfile = {
   id: string;
@@ -45,6 +43,10 @@ export type AdminContribution = {
 };
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  if (!OHM_API_ENABLED) {
+    throw new Error("OHM API is not configured");
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     credentials: "include",
