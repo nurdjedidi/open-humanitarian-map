@@ -38,7 +38,7 @@ export function AdminReviewPanel({
   };
 
   return (
-    <div className="absolute bottom-5 right-4 z-30 w-[min(360px,calc(100vw-2rem))]">
+    <div className="absolute bottom-5 right-4 z-40 w-[min(360px,calc(100vw-2rem))]">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
