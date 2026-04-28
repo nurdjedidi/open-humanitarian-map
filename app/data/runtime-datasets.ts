@@ -81,6 +81,11 @@ type RuntimeCountryCatalog = {
   files: Map<string, JsonModule>;
 };
 
+type FileRequest = {
+  aliases: string[];
+  candidates: string[];
+};
+
 const DATA_BASE_URL = (import.meta.env.VITE_OHM_DATA_BASE_URL ?? "/data").replace(/\/$/, "");
 const DATA_INDEX_URL = `${DATA_BASE_URL}/index.json`;
 
@@ -135,6 +140,17 @@ function canonicalLayerId(layerId: string | undefined): SupportedLayerId | null 
   if (layerId === "osm_settlements" || layerId === "osm_context_settlements") return "osm_settlements";
   if (layerId === "osm_roads" || layerId === "osm_context_roads") return "osm_roads";
   return null;
+}
+
+function currentFileName(layerId: SupportedLayerId): string {
+  if (layerId === "admin_priority") return "current.admin_priority.geojson";
+  if (layerId === "osm_water") return "current.osm_water.geojson";
+  if (layerId === "osm_settlements") return "current.osm_settlements.geojson";
+  return "current.osm_roads.geojson";
+}
+
+function uniqueStrings(values: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
 function fallbackLegend(): ResolvedLegendItem[] {
@@ -200,27 +216,51 @@ async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCou
   const manifestUrl = `${DATA_BASE_URL}/${entry.slug}/${basename(entry.manifest)}`;
   const manifest = await fetchJson<ManifestLike>(manifestUrl);
 
-  const fileRefs = new Set<string>();
-  if (manifest.geojson) fileRefs.add(manifest.geojson);
+  const fileRequests: FileRequest[] = [];
+  const addFileRequest = (
+    layerId: SupportedLayerId,
+    reference: string | undefined,
+    extraCandidates: string[] = [],
+  ) => {
+    if (!reference) return;
+    const originalName = basename(reference);
+    fileRequests.push({
+      aliases: uniqueStrings([originalName, currentFileName(layerId), ...extraCandidates]),
+      candidates: uniqueStrings([currentFileName(layerId), ...extraCandidates, originalName]),
+    });
+  };
+
+  if (manifest.geojson) {
+    addFileRequest("admin_priority", manifest.geojson, ["current.geojson"]);
+  }
   for (const [artifactId, artifact] of Object.entries(manifest.artifacts ?? {})) {
     const name = basename(artifact.geojson ?? "");
     if (artifactId === "world" || name === "world.geojson") continue;
-    if (artifact.geojson) fileRefs.add(artifact.geojson);
+    const layerId = canonicalLayerId(artifactId);
+    if (!layerId) continue;
+    addFileRequest(layerId, artifact.geojson, layerId === "admin_priority" ? ["current.geojson"] : []);
   }
   for (const layer of manifest.layers ?? []) {
     if (basename(layer.path ?? "") === "world.geojson") continue;
-    if (layer.path) fileRefs.add(layer.path);
+    const layerId = canonicalLayerId(layer.id);
+    if (!layerId) continue;
+    addFileRequest(layerId, layer.path, layerId === "admin_priority" ? ["current.geojson"] : []);
   }
 
   const files = new Map<string, JsonModule>();
   await Promise.all(
-    Array.from(fileRefs).map(async (reference) => {
-      const name = basename(reference);
-      try {
-        const payload = await fetchJson(`${DATA_BASE_URL}/${entry.slug}/${name}`);
-        files.set(name, payload);
-      } catch {
-        // Optional layer missing: keep going.
+    fileRequests.map(async (request) => {
+      for (const candidate of request.candidates) {
+        try {
+          const payload = await fetchJson(`${DATA_BASE_URL}/${entry.slug}/${candidate}`);
+          for (const alias of request.aliases) {
+            files.set(alias, payload);
+          }
+          files.set(candidate, payload);
+          return;
+        } catch {
+          // Try the next compatible filename.
+        }
       }
     }),
   );

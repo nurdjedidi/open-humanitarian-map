@@ -1,4 +1,4 @@
-import { Check, ClipboardCheck, Crosshair, MapPin, ShieldCheck, X } from "lucide-react";
+import { Check, Crosshair, MapPin, ShieldCheck, X } from "lucide-react";
 import type { ContributionType } from "~/api/ohm-api";
 
 const OPTIONS: Record<ContributionType, Array<{ value: string; label: string }>> = {
@@ -146,7 +146,7 @@ export function ContributionControls({
 
   return (
     <>
-      <div className="absolute left-3 top-[236px] z-30 md:left-4 md:top-[246px]">
+      <div className="absolute left-3 top-[254px] z-30 md:left-4 md:top-[264px]">
         <button
           type="button"
           onClick={toggle}
@@ -164,7 +164,7 @@ export function ContributionControls({
       </div>
 
       {contributionMode ? (
-        <aside className="absolute left-[76px] top-[246px] z-30 hidden w-[320px] rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 text-[#edf5fb] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:block">
+        <aside className="absolute left-[76px] top-[264px] z-30 hidden w-[320px] rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 text-[#edf5fb] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:block">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
@@ -234,12 +234,6 @@ export function ContributionControls({
         </div>
       ) : null}
 
-      {!isAuthenticated && !contributionMode ? (
-        <div className="pointer-events-none absolute left-[76px] top-[246px] z-30 hidden rounded-2xl border border-white/8 bg-[#0a1420]/80 px-3 py-2 text-xs text-[#9fb4c4] backdrop-blur-xl md:block">
-          <ClipboardCheck className="mr-1 inline h-3.5 w-3.5" />
-          Connexion requise pour contribuer
-        </div>
-      ) : null}
     </>
   );
 }
