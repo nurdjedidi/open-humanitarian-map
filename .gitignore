@@ -2,6 +2,7 @@
 .env
 /node_modules/
 /data
+/public/data/
 
 # React Router
 /.react-router/
