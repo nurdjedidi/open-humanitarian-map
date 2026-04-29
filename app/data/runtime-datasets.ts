@@ -33,6 +33,8 @@ type RuntimeCountryCatalog = {
   manifestName: string;
   manifest: ManifestLike;
   files: Map<string, JsonModule>;
+  tileUrls: Partial<Record<SupportedLayerId, string>>;
+  tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
 };
 
 type FileRequest = {
@@ -43,6 +45,7 @@ type FileRequest = {
 const DATA_BASE_URL = (import.meta.env.VITE_OHM_DATA_BASE_URL ?? "/data").replace(/\/$/, "");
 const DATA_INDEX_URL = `${DATA_BASE_URL}/index.json`;
 const DATA_CACHE_BUSTER = String(Date.now());
+const ADMIN_LOAD_CONCURRENCY = 15;
 let catalogCache: RuntimeCountryCatalog[] | null = null;
 const combinedLayerCache = new Map<SupportedLayerId, FeatureCollection>();
 
@@ -90,6 +93,10 @@ function isFeatureCollection(value: unknown): value is FeatureCollection {
   );
 }
 
+function emptyFeatureCollection(): FeatureCollection {
+  return { type: "FeatureCollection", features: [] };
+}
+
 function canonicalLayerId(layerId: string | undefined): SupportedLayerId | null {
   if (!layerId) return null;
   if (layerId === "admin_priority") return "admin_priority";
@@ -108,6 +115,62 @@ function currentFileName(layerId: SupportedLayerId): string {
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
+}
+
+function resolveTileConfig(
+  slug: string,
+  manifest: ManifestLike,
+): {
+  tileUrls: Partial<Record<SupportedLayerId, string>>;
+  tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
+} {
+  const tileUrls: Partial<Record<SupportedLayerId, string>> = {};
+  const tileSourceLayers: Partial<Record<SupportedLayerId, string>> = {};
+
+  for (const [artifactId, artifact] of Object.entries(manifest.tiles?.artifacts ?? {})) {
+    const layerId = canonicalLayerId(artifactId);
+    if (!layerId || !artifact.pmtiles) continue;
+    tileUrls[layerId] = `${DATA_BASE_URL}/${slug}/${basename(artifact.pmtiles)}`;
+    tileSourceLayers[layerId] = artifact.source_layer ?? artifactId;
+  }
+
+  const conventionalTiles: Array<{
+    layerId: SupportedLayerId;
+    filename: string;
+    sourceLayer: string;
+  }> = [
+    {
+      layerId: "admin_priority",
+      filename: "current.admin_priority.pmtiles",
+      sourceLayer: "admin_priority",
+    },
+    {
+      layerId: "osm_roads",
+      filename: "current.osm_roads.pmtiles",
+      sourceLayer: "osm_roads",
+    },
+    {
+      layerId: "osm_water",
+      filename: "current.osm_water.pmtiles",
+      sourceLayer: "osm_water",
+    },
+    {
+      layerId: "osm_settlements",
+      filename: "current.osm_settlements.pmtiles",
+      sourceLayer: "osm_settlements",
+    },
+  ];
+
+  for (const tile of conventionalTiles) {
+    if (!tileUrls[tile.layerId]) {
+      tileUrls[tile.layerId] = `${DATA_BASE_URL}/${slug}/${tile.filename}`;
+    }
+    if (!tileSourceLayers[tile.layerId]) {
+      tileSourceLayers[tile.layerId] = tile.sourceLayer;
+    }
+  }
+
+  return { tileUrls, tileSourceLayers };
 }
 
 function withRuntimeCacheBuster(url: string): string {
@@ -162,17 +225,39 @@ async function fetchJson<T = JsonModule>(url: string): Promise<T> {
   if (!response.ok) {
     throw new Error(`Impossible de charger ${url} (${response.status})`);
   }
-  const text = await response.text();
-  const sanitized = text
-    .replace(/\bNaN\b/g, "null")
-    .replace(/\bInfinity\b/g, "null")
-    .replace(/\b-Infinity\b/g, "null");
-  return JSON.parse(sanitized) as T;
+  const fallbackResponse = response.clone();
+  try {
+    return (await response.json()) as T;
+  } catch {
+    const text = await fallbackResponse.text();
+    const sanitized = text
+      .replace(/\bNaN\b/g, "null")
+      .replace(/\bInfinity\b/g, "null")
+      .replace(/\b-Infinity\b/g, "null");
+    return JSON.parse(sanitized) as T;
+  }
 }
 
 async function fetchDatasetIndex(): Promise<DatasetIndexEntry[]> {
   const payload = await fetchJson<{ countries?: DatasetIndexEntry[] }>(DATA_INDEX_URL);
   return Array.isArray(payload.countries) ? payload.countries : [];
+}
+
+function sortDatasetEntries(entries: DatasetIndexEntry[]): DatasetIndexEntry[] {
+  const preferred = ["senegal", "gambie", "gambia", "guinea", "guinee"];
+
+  return entries.slice().sort((left, right) => {
+    const leftIndex = preferred.indexOf(normalizeText(left.slug));
+    const rightIndex = preferred.indexOf(normalizeText(right.slug));
+
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+
+    return left.slug.localeCompare(right.slug);
+  });
 }
 
 function fileRequestForLayer(
@@ -241,20 +326,27 @@ async function fetchCountryLayerFile(
   return files;
 }
 
+async function hydrateCountryAdmin(country: RuntimeCountryCatalog): Promise<void> {
+  const request = fileRequestForLayer(country.manifest, "admin_priority");
+  const files = await fetchCountryLayerFile(country.slug, request);
+  for (const [key, value] of files) {
+    country.files.set(key, value);
+  }
+}
+
 async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCountryCatalog> {
   const manifestUrl = `${DATA_BASE_URL}/${entry.slug}/${basename(entry.manifest)}`;
   const manifest = await fetchJson<ManifestLike>(manifestUrl);
-  const files = await fetchCountryLayerFile(
-    entry.slug,
-    fileRequestForLayer(manifest, "admin_priority"),
-  );
+  const { tileUrls, tileSourceLayers } = resolveTileConfig(entry.slug, manifest);
 
   return {
     slug: entry.slug,
     title: entry.title,
     manifestName: basename(entry.manifest),
     manifest,
-    files,
+    files: new Map<string, JsonModule>(),
+    tileUrls,
+    tileSourceLayers,
   };
 }
 
@@ -293,13 +385,13 @@ function resolveGeoJson(country: RuntimeCountryCatalog, reference: string | unde
   return direct && isFeatureCollection(direct) ? direct : null;
 }
 
-function resolveAdminGeoJson(country: RuntimeCountryCatalog, manifest: ManifestLike): FeatureCollection {
+function resolveAdminGeoJson(
+  country: RuntimeCountryCatalog,
+  manifest: ManifestLike,
+): FeatureCollection | null {
   const artifactPath = manifest.artifacts?.admin_priority?.geojson;
   const resolved = resolveGeoJson(country, artifactPath ?? manifest.geojson);
-  if (!resolved) {
-    throw new Error(`Impossible de résoudre le GeoJSON admin du manifest ${country.slug}.`);
-  }
-  return decorateAdmin(resolved);
+  return resolved ? decorateAdmin(resolved) : null;
 }
 
 function resolveLayers(
@@ -491,7 +583,7 @@ function resolveLayerDefaults(
 }
 
 function buildDataset(country: RuntimeCountryCatalog): MapDataset {
-  const admin = resolveAdminGeoJson(country, country.manifest);
+  const admin = resolveAdminGeoJson(country, country.manifest) ?? emptyFeatureCollection();
   const legend = resolveLegend(country.manifest);
   const layers = resolveLayers(country, country.manifest);
   const summary = country.manifest.summary ?? {};
@@ -508,6 +600,16 @@ function buildDataset(country: RuntimeCountryCatalog): MapDataset {
     summary,
     topRegions: resolveTopRegions(country.manifest, admin),
     layerDefaults: resolveLayerDefaults(country.manifest, legend),
+    countries: [
+      {
+        slug: country.slug,
+        title,
+        manifestName: country.manifestName,
+        tileUrls: country.tileUrls,
+        tileSourceLayers: country.tileSourceLayers,
+      },
+    ],
+    adminHydrated: admin.features.length > 0,
   };
 }
 
@@ -581,6 +683,29 @@ function combineTopRegions(datasets: MapDataset[]): RegionRecord[] {
     .slice(0, 12);
 }
 
+function buildCombinedDatasetFromParts(datasets: MapDataset[]): MapDataset {
+  const admin = combineFeatureCollections(datasets, (dataset) => dataset.admin);
+  admin.features = admin.features
+    .slice()
+    .sort((left, right) => featureDisplayArea(right) - featureDisplayArea(left));
+
+  return {
+    id: "combined",
+    slug: "combined",
+    manifest: {},
+    manifestName: datasets.map((dataset) => dataset.manifestName).join(", "),
+    title: datasets.map((dataset) => dataset.title).join(" + "),
+    admin,
+    layers: { admin_priority: admin },
+    legend: combineLegend(datasets),
+    summary: combineSummary(datasets),
+    topRegions: combineTopRegions(datasets),
+    layerDefaults: combineLayerDefaults(datasets),
+    countries: datasets.flatMap((dataset) => dataset.countries),
+    adminHydrated: datasets.every((dataset) => dataset.adminHydrated),
+  };
+}
+
 async function resolveCountryLayer(
   country: RuntimeCountryCatalog,
   layerId: SupportedLayerId,
@@ -652,7 +777,7 @@ export async function loadCombinedLayer(
 }
 
 export async function loadCombinedDataset(): Promise<MapDataset> {
-  const entries = await fetchDatasetIndex();
+  const entries = sortDatasetEntries(await fetchDatasetIndex());
   if (!entries.length) {
     throw new Error("Aucun dataset pays trouvé dans public/data.");
   }
@@ -695,31 +820,98 @@ export async function loadCombinedDataset(): Promise<MapDataset> {
     );
   }
 
-  const admin = combineFeatureCollections(datasets, (dataset) => dataset.admin);
-  admin.features = admin.features
-    .slice()
-    .sort((left, right) => featureDisplayArea(right) - featureDisplayArea(left));
+  const combined = buildCombinedDatasetFromParts(datasets);
   console.info("[OHM] Dataset combiné", {
     countries: datasets.map((dataset) => dataset.slug),
-    adminFeatures: admin.features.length,
+    adminFeatures: combined.admin.features.length,
   });
-  const layers: Partial<Record<SupportedLayerId, FeatureCollection>> = {
-    admin_priority: admin,
-  };
+  return combined;
+}
 
-  return {
-    id: "combined",
-    slug: "combined",
-    manifest: {},
-    manifestName: datasets.map((dataset) => dataset.manifestName).join(", "),
-    title: datasets.map((dataset) => dataset.title).join(" + "),
-    admin,
-    layers,
-    legend: combineLegend(datasets),
-    summary: combineSummary(datasets),
-    topRegions: combineTopRegions(datasets),
-    layerDefaults: combineLayerDefaults(datasets),
-  };
+export async function loadCombinedDatasetProgressive(
+  onPartialDataset: (dataset: MapDataset) => void,
+): Promise<MapDataset> {
+  const entries = sortDatasetEntries(await fetchDatasetIndex());
+  if (!entries.length) {
+    throw new Error("Aucun dataset pays trouvé dans public/data.");
+  }
+  console.info(
+    "[OHM] Dataset index",
+    entries.map((entry) => entry.slug),
+  );
+
+  const catalogs: RuntimeCountryCatalog[] = [];
+  const datasets: MapDataset[] = [];
+  catalogCache = catalogs;
+  combinedLayerCache.clear();
+
+  const manifestQueue = entries.slice();
+  const manifestWorkers = Array.from(
+    { length: Math.min(ADMIN_LOAD_CONCURRENCY, manifestQueue.length) },
+    async () => {
+      while (manifestQueue.length) {
+        const entry = manifestQueue.shift();
+        if (!entry) return;
+
+        try {
+          const catalog = await buildCountryCatalog(entry);
+          const dataset = buildDataset(catalog);
+          catalogs.push(catalog);
+          datasets.push(dataset);
+          catalogCache = catalogs.slice();
+        } catch (error) {
+          console.warn(`[OHM] Dataset ignoré: ${entry.slug}`, error);
+        }
+      }
+    },
+  );
+
+  const results = await Promise.allSettled(manifestWorkers);
+  onPartialDataset(buildCombinedDatasetFromParts(datasets));
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      console.warn(
+        `[OHM] Worker dataset interrompu: ${entries[index]?.slug ?? "unknown"}`,
+        result.reason,
+      );
+    }
+  });
+
+  if (!datasets.length) {
+    throw new Error(
+      `Aucun dataset pays chargeable depuis ${DATA_INDEX_URL}. Vérifie les slugs et fichiers current.* dans le stockage.`,
+    );
+  }
+
+  const hydrationQueue = catalogs.slice();
+  const hydrationWorkers = Array.from(
+    { length: Math.min(10, hydrationQueue.length) },
+    async () => {
+      while (hydrationQueue.length) {
+        const country = hydrationQueue.shift();
+        if (!country) return;
+
+        try {
+          await hydrateCountryAdmin(country);
+          const refreshedDatasets = catalogs.map((catalog) => buildDataset(catalog));
+          datasets.splice(0, datasets.length, ...refreshedDatasets);
+          catalogCache = catalogs.slice();
+          onPartialDataset(buildCombinedDatasetFromParts(refreshedDatasets));
+        } catch (error) {
+          console.warn(`[OHM] Hydratation admin ignorée: ${country.slug}`, error);
+        }
+      }
+    },
+  );
+
+  await Promise.allSettled(hydrationWorkers);
+
+  const combined = buildCombinedDatasetFromParts(datasets);
+  console.info("[OHM] Dataset combiné", {
+    countries: datasets.map((dataset) => dataset.slug),
+    adminFeatures: combined.admin.features.length,
+  });
+  return combined;
 }
 
 export function getTimelineFallbackSummary(
@@ -946,7 +1138,7 @@ export function projectDatasetForYear(
   dataset: MapDataset,
   year: number | null,
 ): MapDataset {
-  if (year === null) return dataset;
+  if (year === null || !dataset.admin.features.length) return dataset;
 
   const selectedEntries = dataset.admin.features
     .map((feature) => pickTimelineEntryForYear(timelineEntriesFromFeature(feature), year))

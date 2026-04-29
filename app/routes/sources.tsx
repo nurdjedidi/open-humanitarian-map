@@ -1,9 +1,9 @@
 import type { Route } from "./+types/sources";
 
+import { boundarySources } from "../content/boundary-sources";
 import { InfoPage } from "~/components/info-page";
 import { RuntimeSeo } from "~/components/runtime-seo";
 import { useI18n } from "~/i18n/use-i18n";
-import boundarySourcesRaw from "../../sources.md?raw";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -11,46 +11,6 @@ export function meta({}: Route.MetaArgs) {
     { name: "description", content: "Sources and licenses for Open Humanitarian Map" },
   ];
 }
-
-type BoundarySource = {
-  location: string;
-  source: string;
-  contributor: string;
-};
-
-function parseBoundarySources(raw: string): BoundarySource[] {
-  const lines = raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const sources: BoundarySource[] = [];
-
-  for (let index = 0; index < lines.length; index += 6) {
-    const locationLabel = lines[index];
-    const location = lines[index + 1];
-    const sourceLabel = lines[index + 2];
-    const source = lines[index + 3];
-    const contributorLabel = lines[index + 4];
-    const contributor = lines[index + 5];
-
-    if (
-      locationLabel !== "Location" ||
-      sourceLabel !== "Source" ||
-      contributorLabel !== "Contributor" ||
-      !location ||
-      !source ||
-      !contributor
-    ) {
-      continue;
-    }
-
-    sources.push({ location, source, contributor });
-  }
-
-  return sources;
-}
-
-const boundarySources = parseBoundarySources(boundarySourcesRaw);
 
 function SourcesContent() {
   const { t } = useI18n();
@@ -67,7 +27,7 @@ function SourcesContent() {
         <div className="mb-4">
           <h2 className="text-xl font-black text-white">Sources des limites administratives</h2>
           <p className="mt-2 text-sm leading-6 text-[#9fb2c2]">
-            Détail par pays des sources et contributeurs utilisés pour les boundaries OHM.
+            Detail par pays des sources et contributeurs utilises pour les boundaries OHM.
           </p>
         </div>
 

@@ -1,23 +1,20 @@
-import { GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type {
   Feature,
   FeatureCollection,
   GeoJsonProperties,
   Geometry,
 } from "geojson";
-import type { StyleSpecification } from "maplibre-gl";
+import type { MapGeoJSONFeature, StyleSpecification } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Protocol } from "pmtiles";
 
-import type { MapDataset, RegionRecord } from "~/data/dataset-types";
+import type { MapDataset, RegionRecord, SupportedLayerId } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import {
-  featureName,
   formatCompactNumber,
   formatScore100,
   getFeatureBounds,
-  priorityColor,
   safeNumber,
-  toPointCoordinates,
 } from "~/utils";
 
 export type BasemapId = "voyager" | "dark-matter" | "satellite";
@@ -44,20 +41,6 @@ type TooltipPosition = {
   y: number;
 };
 
-type PointRecord = {
-  id: string;
-  label: string;
-  line1: string;
-  line2: string;
-  coordinates: [number, number];
-};
-
-type CountryLabelRecord = {
-  id: string;
-  label: string;
-  coordinates: [number, number];
-};
-
 type MapViewProps = {
   dataset: MapDataset;
   showWater: boolean;
@@ -75,37 +58,589 @@ type MapViewProps = {
   onRegionSelect?: (region: RegionRecord | null) => void;
 };
 
-const INITIAL_CENTER: [number, number] = [-14.7, 14.5];
 const INITIAL_ZOOM = 4.55;
+const INITIAL_BOUNDS: [[number, number], [number, number]] = [
+  [-18.8, 4.0],
+  [16.5, 25.8],
+];
+const OHM_SOURCE_PREFIX = "ohm-src-";
+const OHM_LAYER_PREFIX = "ohm-lyr-";
+const CONTRIBUTION_SOURCE_ID = `${OHM_SOURCE_PREFIX}contributions`;
+const PENDING_SOURCE_ID = `${OHM_SOURCE_PREFIX}pending`;
+let pmtilesProtocolRegistered = false;
 
-function adminFillAlpha(droneMode: boolean) {
-  return droneMode ? 58 : 168;
+function ensurePmtilesProtocol(maplibregl: any) {
+  if (pmtilesProtocolRegistered) return;
+  const protocol = new Protocol();
+  maplibregl.addProtocol("pmtiles", protocol.tile);
+  pmtilesProtocolRegistered = true;
 }
 
-function adminBorderColor(
-  isSelected: boolean,
-  droneMode: boolean,
-): [number, number, number, number] {
-  if (isSelected) return [255, 255, 255, droneMode ? 230 : 255];
-  // More visible and sharper for admin boundaries
-  return droneMode ? [100, 105, 120, 130] : [110, 115, 130, 210];
+function adminFillOpacity(droneMode: boolean) {
+  return droneMode ? 0.24 : 0.65;
 }
 
-function roadLineColor(droneMode: boolean): [number, number, number, number] {
-  // Softer and more contextual for roads
-  return droneMode ? [120, 120, 125, 90] : [130, 130, 135, 110];
+function buildRegionRecordFromProperties(
+  props: Record<string, unknown>,
+  countrySlug: string,
+  fallbackReason: string,
+): RegionRecord {
+  const rawId =
+    String(
+      props.feature_id ??
+        props.adm3_pcode ??
+        props.adm2_pcode ??
+        props.adm1_pcode ??
+        props.region_name ??
+        props.name ??
+        "region",
+    ) || "region";
+
+  return {
+    id: `${countrySlug}:${rawId}`,
+    name:
+      (typeof props.region_name === "string" && props.region_name) ||
+      (typeof props.adm3_name === "string" && props.adm3_name) ||
+      (typeof props.adm2_name === "string" && props.adm2_name) ||
+      (typeof props.adm1_name === "string" && props.adm1_name) ||
+      (typeof props.name === "string" && props.name) ||
+      "Zone inconnue",
+    adm1Name:
+      (typeof props.adm1_name === "string" && props.adm1_name) || "n/a",
+    priorityScore: safeNumber(props.priority_score ?? props.score),
+    score100: safeNumber(props.score_100),
+    priorityLabel:
+      (typeof props.priority_label === "string" && props.priority_label) ||
+      (typeof props.status === "string" && props.status) ||
+      "n/a",
+    decisionReason:
+      (typeof props.decision_reason === "string" && props.decision_reason) ||
+      fallbackReason,
+    ipcPhase: safeNumber(props.ipc_phase_dominant),
+    ipcPeopleP3Plus: safeNumber(props.ipc_people_p3plus),
+    ipcPopulationTotal: safeNumber(props.ipc_population_total),
+    ipcShareP3Plus: safeNumber(props.ipc_share_p3plus),
+  };
 }
 
-function osmPointAlpha(droneMode: boolean, baseAlpha: number) {
-  return droneMode ? Math.max(70, Math.round(baseAlpha * 0.55)) : baseAlpha;
+function layerId(slug: string, part: string) {
+  return `${OHM_LAYER_PREFIX}${slug}-${part}`;
 }
 
-function contributionColor(type: unknown): [number, number, number, number] {
-  if (type === "water") return [45, 140, 255, 230];
-  if (type === "road" || type === "access") return [240, 193, 112, 230];
-  if (type === "ngo_presence") return [139, 215, 166, 230];
-  if (type === "alert") return [248, 92, 92, 235];
-  return [160, 180, 195, 220];
+function sourceId(slug: string, part: string) {
+  return `${OHM_SOURCE_PREFIX}${slug}-${part}`;
+}
+
+function splitSelectedRegionId(selectedRegionId: string | null | undefined) {
+  if (!selectedRegionId) return { slug: null, rawId: null };
+  const separator = selectedRegionId.indexOf(":");
+  if (separator === -1) {
+    return { slug: null, rawId: selectedRegionId };
+  }
+  return {
+    slug: selectedRegionId.slice(0, separator),
+    rawId: selectedRegionId.slice(separator + 1),
+  };
+}
+
+function findLabelLayerId(map: any): string | null {
+  const styleLayers = map?.getStyle?.()?.layers;
+  if (!Array.isArray(styleLayers)) return null;
+  const firstSymbolLayer = styleLayers.find((layer: any) => layer?.type === "symbol");
+  return firstSymbolLayer?.id ?? null;
+}
+
+function tuneBasemapLabels(map: any, basemapId: BasemapId) {
+  const styleLayers = map?.getStyle?.()?.layers;
+  if (!Array.isArray(styleLayers)) return;
+
+  const isDark = basemapId === "dark-matter" || basemapId === "satellite";
+  const textColor = isDark ? "#ffffff" : "#1a1a1a";
+  const haloColor = isDark ? "#000000" : "#ffffff";
+
+  for (const layer of styleLayers) {
+    if (layer?.type !== "symbol" || !layer?.layout?.["text-field"]) continue;
+
+    try {
+      map.setPaintProperty(layer.id, "text-color", textColor);
+      map.setPaintProperty(layer.id, "text-halo-color", haloColor);
+      map.setPaintProperty(layer.id, "text-halo-width", 1.4);
+      map.setPaintProperty(layer.id, "text-halo-blur", 0.25);
+    } catch {
+      // Ignore layers that do not accept these paint properties.
+    }
+  }
+}
+
+function removeLayerIfExists(map: any, id: string) {
+  if (map.getLayer(id)) {
+    map.removeLayer(id);
+  }
+}
+
+function removeSourceIfExists(map: any, id: string) {
+  if (map.getSource(id)) {
+    map.removeSource(id);
+  }
+}
+
+function removeBuildingsLayer(map: any) {
+  removeLayerIfExists(map, "ohm-3d-buildings");
+}
+
+function ensureBuildingsLayer(map: any, beforeId?: string | null) {
+  removeBuildingsLayer(map);
+  const style = map?.getStyle?.();
+  const sources = style?.sources ?? {};
+  const vectorSourceIds = Object.entries(sources)
+    .filter(([, source]: any) => source?.type === "vector")
+    .map(([sourceKey]) => sourceKey);
+
+  for (const vectorSourceId of vectorSourceIds) {
+    for (const sourceLayer of ["building", "buildings"]) {
+      try {
+        map.addLayer(
+          {
+            id: "ohm-3d-buildings",
+            type: "fill-extrusion",
+            source: vectorSourceId,
+            "source-layer": sourceLayer,
+            minzoom: 14,
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                14,
+                "#b08b62",
+                17,
+                "#8f6e4d",
+              ],
+              "fill-extrusion-height": [
+                "coalesce",
+                ["to-number", ["get", "render_height"]],
+                ["to-number", ["get", "height"]],
+                8,
+              ],
+              "fill-extrusion-base": [
+                "coalesce",
+                ["to-number", ["get", "render_min_height"]],
+                ["to-number", ["get", "min_height"]],
+                0,
+              ],
+              "fill-extrusion-opacity": 0.86,
+            },
+          },
+          beforeId ?? undefined,
+        );
+        return true;
+      } catch {
+        // Try next source layer candidate.
+      }
+    }
+  }
+
+  return false;
+}
+
+function upsertGeoJsonSource(map: any, id: string, data: FeatureCollection) {
+  const existing = map.getSource(id);
+  if (existing) {
+    existing.setData(data);
+    return;
+  }
+
+  map.addSource(id, {
+    type: "geojson",
+    data,
+  });
+}
+
+function applyOperationalLayers(
+  map: any,
+  dataset: MapDataset,
+  options: {
+    showRoads: boolean;
+    showWater: boolean;
+    showSettlements: boolean;
+    selectedRegionId: string | null;
+    droneMode: boolean;
+    labelLayerId: string | null;
+    contributions?: FeatureCollection;
+    pendingContributionCoordinate?: [number, number] | null;
+  },
+) {
+  const beforeId = options.labelLayerId ?? undefined;
+  const { slug: selectedSlug, rawId: selectedRawId } = splitSelectedRegionId(
+    options.selectedRegionId,
+  );
+
+  for (const country of dataset.countries) {
+    const adminTileUrl = country.tileUrls.admin_priority;
+    const adminSourceLayer = country.tileSourceLayers.admin_priority ?? "admin_priority";
+    if (adminTileUrl) {
+      const adminSourceId = sourceId(country.slug, "admin");
+      if (!map.getSource(adminSourceId)) {
+        map.addSource(adminSourceId, {
+          type: "vector",
+          url: `pmtiles://${adminTileUrl}`,
+        });
+      }
+
+      const adminFillId = layerId(country.slug, "admin-fill");
+      removeLayerIfExists(map, adminFillId);
+      map.addLayer(
+        {
+          id: adminFillId,
+          type: "fill",
+          source: adminSourceId,
+          "source-layer": adminSourceLayer,
+          paint: {
+            "fill-color": [
+              "case",
+              [
+                "any",
+                ["has", "priority_score"],
+                ["has", "score"],
+              ],
+              [
+                "interpolate",
+                ["linear"],
+                [
+                  "coalesce",
+                  ["to-number", ["get", "priority_score"]],
+                  ["to-number", ["get", "score"]],
+                  0,
+                ],
+                0,
+                "#fff7bc",
+                0.25,
+                "#fec44f",
+                0.5,
+                "#fe9929",
+                0.75,
+                "#d95f0e",
+                0.9,
+                "#990000",
+                1,
+                "#660000",
+              ],
+              "#e5e7eb",
+            ],
+            "fill-opacity": adminFillOpacity(options.droneMode),
+          },
+        },
+        beforeId,
+      );
+
+      const adminLineId = layerId(country.slug, "admin-line");
+      removeLayerIfExists(map, adminLineId);
+      map.addLayer(
+        {
+          id: adminLineId,
+          type: "line",
+          source: adminSourceId,
+          "source-layer": adminSourceLayer,
+          paint: {
+            "line-color": options.droneMode ? "#6b7280" : "#4b5563",
+            "line-width": options.droneMode ? 0.7 : 1.0,
+            "line-opacity": options.droneMode ? 0.5 : 0.85,
+          },
+        },
+        beforeId,
+      );
+
+      const adminHighlightId = layerId(country.slug, "admin-highlight");
+      removeLayerIfExists(map, adminHighlightId);
+      map.addLayer(
+        {
+          id: adminHighlightId,
+          type: "line",
+          source: adminSourceId,
+          "source-layer": adminSourceLayer,
+          filter:
+            selectedSlug === country.slug && selectedRawId
+              ? ["==", ["to-string", ["get", "feature_id"]], selectedRawId]
+              : ["==", ["to-string", ["get", "feature_id"]], "__none__"],
+          paint: {
+            "line-color": "#ffffff",
+            "line-width": options.droneMode ? 2.8 : 3.6,
+            "line-opacity": 1,
+          },
+        },
+        beforeId,
+      );
+    }
+
+    const roadsTileUrl = country.tileUrls.osm_roads;
+    const roadsSourceLayer = country.tileSourceLayers.osm_roads ?? "osm_roads";
+    const roadsSourceId = sourceId(country.slug, "roads");
+    const roadsLayerId = layerId(country.slug, "roads");
+    if (roadsTileUrl && options.showRoads) {
+      if (!map.getSource(roadsSourceId)) {
+        map.addSource(roadsSourceId, {
+          type: "vector",
+          url: `pmtiles://${roadsTileUrl}`,
+        });
+      }
+
+      removeLayerIfExists(map, roadsLayerId);
+      map.addLayer(
+        {
+          id: roadsLayerId,
+          type: "line",
+          source: roadsSourceId,
+          "source-layer": roadsSourceLayer,
+          paint: {
+            "line-color": options.droneMode ? "#6b7280" : "#7c828a",
+            "line-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              1,
+              0.35,
+              6,
+              0.55,
+              10,
+              0.75,
+            ],
+            "line-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              1,
+              0.4,
+              4,
+              0.9,
+              8,
+              1.8,
+              11,
+              3.2,
+              14,
+              5.2,
+            ],
+          },
+        },
+        beforeId,
+      );
+    } else {
+      removeLayerIfExists(map, roadsLayerId);
+      removeSourceIfExists(map, roadsSourceId);
+    }
+
+    const waterTileUrl = country.tileUrls.osm_water;
+    const waterSourceLayer = country.tileSourceLayers.osm_water ?? "osm_water";
+    const waterSourceId = sourceId(country.slug, "water");
+    const waterOverviewId = layerId(country.slug, "water-overview");
+    const waterDetailId = layerId(country.slug, "water-detail");
+    if (waterTileUrl && options.showWater) {
+      if (!map.getSource(waterSourceId)) {
+        map.addSource(waterSourceId, {
+          type: "vector",
+          url: `pmtiles://${waterTileUrl}`,
+        });
+      }
+
+      removeLayerIfExists(map, waterOverviewId);
+      removeLayerIfExists(map, waterDetailId);
+      map.addLayer(
+        {
+          id: waterDetailId,
+          type: "circle",
+          source: waterSourceId,
+          "source-layer": waterSourceLayer,
+          minzoom: 6.1,
+          paint: {
+            "circle-color": "#3f93ff",
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              6.1,
+              0.8,
+              10,
+              1.15,
+              14,
+              1.35,
+            ],
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              6.1,
+              options.droneMode ? 0.28 : 0.46,
+              8.5,
+              options.droneMode ? 0.4 : 0.72,
+              12,
+              options.droneMode ? 0.55 : 0.92,
+            ],
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              6.1,
+              2.7,
+              7.5,
+              3.7,
+              11,
+              6.5,
+              14,
+              8.7,
+            ],
+          },
+        },
+        beforeId,
+      );
+    } else {
+      removeLayerIfExists(map, waterOverviewId);
+      removeLayerIfExists(map, waterDetailId);
+      removeSourceIfExists(map, waterSourceId);
+    }
+
+    const settlementTileUrl = country.tileUrls.osm_settlements;
+    const settlementSourceLayer =
+      country.tileSourceLayers.osm_settlements ?? "osm_settlements";
+    const settlementSourceId = sourceId(country.slug, "settlements");
+    const settlementOverviewId = layerId(country.slug, "settlements-overview");
+    const settlementDetailId = layerId(country.slug, "settlements-detail");
+    if (settlementTileUrl && options.showSettlements) {
+      if (!map.getSource(settlementSourceId)) {
+        map.addSource(settlementSourceId, {
+          type: "vector",
+          url: `pmtiles://${settlementTileUrl}`,
+        });
+      }
+
+      removeLayerIfExists(map, settlementOverviewId);
+      removeLayerIfExists(map, settlementDetailId);
+      map.addLayer(
+        {
+          id: settlementDetailId,
+          type: "circle",
+          source: settlementSourceId,
+          "source-layer": settlementSourceLayer,
+          minzoom: 5.8,
+          paint: {
+            "circle-color": "#20242b",
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              5.8,
+              0.65,
+              9,
+              0.9,
+              14,
+              1.1,
+            ],
+            "circle-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              5.8,
+              options.droneMode ? 0.2 : 0.34,
+              8.5,
+              options.droneMode ? 0.34 : 0.56,
+              12,
+              options.droneMode ? 0.48 : 0.86,
+            ],
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              5.8,
+              1.8,
+              7.2,
+              2.7,
+              11,
+              4.7,
+              14,
+              6.0,
+            ],
+          },
+        },
+        beforeId,
+      );
+    } else {
+      removeLayerIfExists(map, settlementOverviewId);
+      removeLayerIfExists(map, settlementDetailId);
+      removeSourceIfExists(map, settlementSourceId);
+    }
+  }
+
+  if (options.contributions) {
+    upsertGeoJsonSource(map, CONTRIBUTION_SOURCE_ID, options.contributions);
+    removeLayerIfExists(map, layerId("contributions", "points"));
+    map.addLayer(
+      {
+        id: layerId("contributions", "points"),
+        type: "circle",
+        source: CONTRIBUTION_SOURCE_ID,
+        paint: {
+          "circle-color": [
+            "match",
+            ["get", "type"],
+            "water",
+            "#2d8cff",
+            "road",
+            "#f0c170",
+            "access",
+            "#f0c170",
+            "ngo_presence",
+            "#8bd7a6",
+            "alert",
+            "#f85c5c",
+            "#a0b4c3",
+          ],
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.2,
+          "circle-radius": 6.5,
+          "circle-opacity": 0.95,
+        },
+      },
+      beforeId,
+    );
+  } else {
+    removeLayerIfExists(map, layerId("contributions", "points"));
+    removeSourceIfExists(map, CONTRIBUTION_SOURCE_ID);
+  }
+
+  if (options.pendingContributionCoordinate) {
+    upsertGeoJsonSource(map, PENDING_SOURCE_ID, {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "Point",
+            coordinates: options.pendingContributionCoordinate,
+          },
+        },
+      ],
+    });
+    removeLayerIfExists(map, layerId("pending", "point"));
+    map.addLayer(
+      {
+        id: layerId("pending", "point"),
+        type: "circle",
+        source: PENDING_SOURCE_ID,
+        paint: {
+          "circle-color": "#f0c170",
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.5,
+          "circle-radius": 7.5,
+          "circle-opacity": 0.98,
+        },
+      },
+      beforeId,
+    );
+  } else {
+    removeLayerIfExists(map, layerId("pending", "point"));
+    removeSourceIfExists(map, PENDING_SOURCE_ID);
+  }
 }
 
 export const BASEMAPS: Array<{
@@ -117,19 +652,19 @@ export const BASEMAPS: Array<{
   {
     id: "voyager",
     label: "Voyager",
-    description: "Fond clair, bon pour la lecture régionale",
+    description: "Light basemap, good for regional reading",
     style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
   },
   {
     id: "dark-matter",
     label: "Dark",
-    description: "Contraste fort pour les couches opérationnelles",
+    description: "High contrast for operational layers",
     style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
   },
   {
     id: "satellite",
     label: "Satellite",
-    description: "Fond image pour vérification terrain",
+    description: "Imagery basemap for field verification",
     style: {
       version: 8,
       sources: {
@@ -146,261 +681,6 @@ export const BASEMAPS: Array<{
     } as StyleSpecification,
   },
 ];
-
-function buildRegionRecord(
-  feature: Feature<Geometry, GeoJsonProperties>,
-  fallbackReason: string,
-): RegionRecord {
-  const props = feature.properties ?? {};
-  return {
-    id: String(
-      props.feature_id ?? props.adm2_pcode ?? props.adm1_pcode ?? featureName(props),
-    ),
-    name: featureName(props),
-    adm1Name: typeof props.adm1_name === "string" ? props.adm1_name : "n/a",
-    priorityScore: safeNumber(props.priority_score ?? props.score),
-    score100: safeNumber(props.score_100),
-    priorityLabel:
-      typeof props.priority_label === "string"
-        ? props.priority_label
-        : typeof props.status === "string"
-          ? props.status
-          : "n/a",
-    decisionReason:
-      typeof props.decision_reason === "string" ? props.decision_reason : fallbackReason,
-    ipcPhase: safeNumber(props.ipc_phase_dominant),
-    ipcPeopleP3Plus: safeNumber(props.ipc_people_p3plus),
-    ipcPopulationTotal: safeNumber(props.ipc_population_total),
-    ipcShareP3Plus: safeNumber(props.ipc_share_p3plus),
-  };
-}
-
-function featureRecordIndex(
-  collection: FeatureCollection,
-  fallbackReason: string,
-): Map<string, RegionRecord> {
-  return new Map(
-    collection.features.map((feature) => {
-      const record = buildRegionRecord(feature, fallbackReason);
-      return [record.id, record];
-    }),
-  );
-}
-
-function downsampleFeatures(
-  features: Feature<Geometry, GeoJsonProperties>[],
-  maxPoints: number,
-) {
-  if (features.length <= maxPoints) return features;
-  const step = Math.max(1, Math.round(features.length / maxPoints));
-  return features.filter((_, index) => index % step === 0).slice(0, maxPoints);
-}
-
-function pointLabel(feature: Feature<Geometry, GeoJsonProperties>, fallback: string) {
-  const props = feature.properties ?? {};
-  const candidates = [
-    typeof props.name === "string" ? props.name : "",
-    typeof props.amenity === "string" ? props.amenity : "",
-    typeof props.place === "string" ? props.place : "",
-    fallback,
-  ];
-  return candidates.find((value) => value.trim()) ?? fallback;
-}
-
-function pointRecords(collection: FeatureCollection | undefined, fallback: string): PointRecord[] {
-  if (!collection) return [];
-  return collection.features.map((feature, index) => ({
-    id: `${fallback}-${index}`,
-    label: pointLabel(feature, fallback),
-    line1:
-      typeof feature.properties?.amenity === "string"
-        ? feature.properties.amenity
-        : fallback,
-    line2: "",
-    coordinates: toPointCoordinates(feature),
-  }));
-}
-
-function mapBounds(collection: FeatureCollection): [[number, number], [number, number]] {
-  const bounds = {
-    minLng: Number.POSITIVE_INFINITY,
-    minLat: Number.POSITIVE_INFINITY,
-    maxLng: Number.NEGATIVE_INFINITY,
-    maxLat: Number.NEGATIVE_INFINITY,
-  };
-
-  for (const feature of collection.features) {
-    const [southWest, northEast] = getFeatureBounds(feature);
-    bounds.minLng = Math.min(bounds.minLng, southWest[0]);
-    bounds.minLat = Math.min(bounds.minLat, southWest[1]);
-    bounds.maxLng = Math.max(bounds.maxLng, northEast[0]);
-    bounds.maxLat = Math.max(bounds.maxLat, northEast[1]);
-  }
-
-  if (!Number.isFinite(bounds.minLng)) {
-    return [[-18.2, 12.0], [-11.2, 16.9]];
-  }
-
-  return [
-    [bounds.minLng, bounds.minLat],
-    [bounds.maxLng, bounds.maxLat],
-  ];
-}
-
-function countryLabelRecords(collection: FeatureCollection): CountryLabelRecord[] {
-  const grouped = new Map<
-    string,
-    { label: string; minLng: number; minLat: number; maxLng: number; maxLat: number }
-  >();
-
-  for (const feature of collection.features) {
-    const props = feature.properties ?? {};
-    const key =
-      (typeof props.country_slug === "string" && props.country_slug) ||
-      (typeof props.adm0_name === "string" && props.adm0_name) ||
-      "country";
-    const label =
-      (typeof props.country_name === "string" && props.country_name) ||
-      (typeof props.adm0_name === "string" && props.adm0_name) ||
-      key;
-    const [[minLng, minLat], [maxLng, maxLat]] = getFeatureBounds(feature);
-    const current = grouped.get(key);
-    if (!current) {
-      grouped.set(key, { label, minLng, minLat, maxLng, maxLat });
-      continue;
-    }
-    current.minLng = Math.min(current.minLng, minLng);
-    current.minLat = Math.min(current.minLat, minLat);
-    current.maxLng = Math.max(current.maxLng, maxLng);
-    current.maxLat = Math.max(current.maxLat, maxLat);
-  }
-
-  return Array.from(grouped.entries()).map(([key, value]) => ({
-    id: key,
-    label: value.label,
-    coordinates: [
-      (value.minLng + value.maxLng) / 2,
-      (value.minLat + value.maxLat) / 2,
-    ],
-  }));
-}
-
-function tintByCountry(
-  color: [number, number, number, number],
-  countrySlug: unknown,
-): [number, number, number, number] {
-  const slug = typeof countrySlug === "string" ? countrySlug : "";
-  if (slug === "gambie" || slug === "gambia") {
-    return [
-      Math.min(255, color[0] + 10),
-      Math.max(0, color[1] - 8),
-      Math.max(0, color[2] - 8),
-      color[3],
-    ];
-  }
-  if (slug === "senegal") {
-    return [
-      Math.max(0, color[0] - 2),
-      Math.min(255, color[1] + 3),
-      Math.max(0, color[2] - 2),
-      color[3],
-    ];
-  }
-  return color;
-}
-
-function findLabelLayerId(map: any): string | null {
-  const styleLayers = map?.getStyle?.()?.layers;
-  if (!Array.isArray(styleLayers)) return null;
-
-  const firstSymbolLayer = styleLayers.find((layer: any) => layer?.type === "symbol");
-  return firstSymbolLayer?.id ?? null;
-}
-
-function tuneBasemapLabels(map: any, basemapId: BasemapId) {
-  const styleLayers = map?.getStyle?.()?.layers;
-  if (!Array.isArray(styleLayers)) return;
-
-  const isDark = basemapId === "dark-matter";
-  const textColor = isDark ? "#ffffff" : "#1a1a1a";
-  const haloColor = isDark ? "#000000" : "#ffffff";
-
-  for (const layer of styleLayers) {
-    if (layer?.type !== "symbol" || !layer?.layout?.["text-field"]) continue;
-
-    try {
-      map.setPaintProperty(layer.id, "text-color", textColor);
-      map.setPaintProperty(layer.id, "text-halo-color", haloColor);
-      map.setPaintProperty(layer.id, "text-halo-width", 1.4);
-      map.setPaintProperty(layer.id, "text-halo-blur", 0.2);
-    } catch { }
-  }
-}
-
-function removeBuildingsLayer(map: any) {
-  try {
-    if (map.getLayer("ohm-3d-buildings")) {
-      map.removeLayer("ohm-3d-buildings");
-    }
-  } catch {
-    // ignore cleanup errors
-  }
-}
-
-function ensureBuildingsLayer(map: any, beforeId?: string | null) {
-  removeBuildingsLayer(map);
-  const style = map?.getStyle?.();
-  const sources = style?.sources ?? {};
-  const vectorSourceIds = Object.entries(sources)
-    .filter(([, source]: any) => source?.type === "vector")
-    .map(([sourceId]) => sourceId);
-
-  for (const sourceId of vectorSourceIds) {
-    for (const sourceLayer of ["building", "buildings"]) {
-      try {
-        map.addLayer(
-          {
-            id: "ohm-3d-buildings",
-            type: "fill-extrusion",
-            source: sourceId,
-            "source-layer": sourceLayer,
-            minzoom: 14,
-            paint: {
-              "fill-extrusion-color": [
-                "interpolate",
-                ["linear"],
-                ["zoom"],
-                14,
-                "#b08b62",
-                17,
-                "#8f6e4d",
-              ],
-              "fill-extrusion-height": [
-                "coalesce",
-                ["get", "render_height"],
-                ["get", "height"],
-                8,
-              ],
-              "fill-extrusion-base": [
-                "coalesce",
-                ["get", "render_min_height"],
-                ["get", "min_height"],
-                0,
-              ],
-              "fill-extrusion-opacity": 0.86,
-            },
-          },
-          beforeId ?? undefined,
-        );
-        return true;
-      } catch {
-        // try next source/source-layer candidate
-      }
-    }
-  }
-
-  return false;
-}
 
 export function MapView({
   dataset,
@@ -421,120 +701,136 @@ export function MapView({
   const { t } = useI18n();
   const mapRootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const overlayRef = useRef<any>(null);
-  const basemapStyleRef = useRef<string | StyleSpecification | null>(null);
   const contributionModeRef = useRef(contributionMode);
   const onMapClickRef = useRef(onMapClick);
+  const datasetRef = useRef(dataset);
 
-  const [zoom, setZoom] = useState(INITIAL_ZOOM);
+  useEffect(() => {
+    datasetRef.current = dataset;
+  }, [dataset]);
+
   const [detail, setDetail] = useState<SelectionDetail | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [labelLayerId, setLabelLayerId] = useState<string | null>(null);
 
   const regionFallbackReason = t("demo.defaultReason");
-  const regionIndex = useMemo(
-    () => featureRecordIndex(dataset.admin, regionFallbackReason),
-    [dataset.admin, regionFallbackReason],
-  );
   const currentBasemap = useMemo(
     () => BASEMAPS.find((item) => item.id === basemapId) ?? BASEMAPS[0],
     [basemapId],
   );
-  const initialBasemapStyleRef = useRef<string | StyleSpecification>(currentBasemap.style);
-
-  const waterLabel = t("demo.water");
-  const settlementsLabel = t("demo.settlements");
-  const waterPoints = useMemo(
-    () => pointRecords(dataset.layers.osm_water, waterLabel),
-    [dataset.layers.osm_water, waterLabel],
-  );
-  const settlementPoints = useMemo(
-    () => pointRecords(dataset.layers.osm_settlements, settlementsLabel),
-    [dataset.layers.osm_settlements, settlementsLabel],
-  );
-  const waterOverviewRecords = useMemo(
-    () =>
-      pointRecords(
-        {
-          type: "FeatureCollection",
-          features: downsampleFeatures(dataset.layers.osm_water?.features ?? [], 110),
-        },
-        waterLabel,
-      ),
-    [dataset.layers.osm_water, waterLabel],
-  );
-  const settlementOverviewRecords = useMemo(
-    () =>
-      pointRecords(
-        {
-          type: "FeatureCollection",
-          features: downsampleFeatures(
-            dataset.layers.osm_settlements?.features ?? [],
-            150,
-          ),
-        },
-        settlementsLabel,
-      ),
-    [dataset.layers.osm_settlements, settlementsLabel],
-  );
-  const countryLabels = useMemo(() => countryLabelRecords(dataset.admin), [dataset.admin]);
+  const basemapStyleRef = useRef<string | StyleSpecification>(currentBasemap.style);
 
   useEffect(() => {
     contributionModeRef.current = contributionMode;
     onMapClickRef.current = onMapClick;
   }, [contributionMode, onMapClick]);
 
-  const layers = useMemo(() => {
-    const layers: any[] = [
-      new GeoJsonLayer({
-        id: "admin-priority",
-        data: dataset.admin,
-        pickable: true,
-        stroked: true,
-        filled: true,
-        lineWidthMinPixels: 1,
-        getLineWidth: (feature: Feature<Geometry, GeoJsonProperties>) =>
-          feature.properties?.feature_id === selectedRegionId
-            ? droneMode
-              ? 2.6
-              : 3.6
-            : droneMode
-              ? 0.7
-              : 1.0,
-        getLineColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
-          adminBorderColor(feature.properties?.feature_id === selectedRegionId, droneMode),
-        getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
-          tintByCountry(
-            priorityColor(
-              feature.properties?.priority_score ?? feature.properties?.score,
-              adminFillAlpha(droneMode),
-            ),
-            feature.properties?.country_slug ?? feature.properties?.adm0_name,
-          ),
-        updateTriggers: {
-          getFillColor: [selectedRegionId, droneMode],
-          getLineWidth: [selectedRegionId, droneMode],
-          getLineColor: [selectedRegionId, droneMode],
+  useEffect(() => {
+    if (!mapRootRef.current || typeof window === "undefined") return;
+    let mounted = true;
+
+    const run = async () => {
+      const { default: maplibregl } = await import("maplibre-gl");
+      ensurePmtilesProtocol(maplibregl);
+
+      if (!mounted || !mapRootRef.current) return;
+
+      const map = new maplibregl.Map({
+        container: mapRootRef.current,
+        style: basemapStyleRef.current,
+        bounds: INITIAL_BOUNDS,
+        fitBoundsOptions: {
+          padding: { top: 120, bottom: 120, left: 120, right: 120 },
+          maxZoom: 5.2,
         },
-        beforeId: labelLayerId ?? undefined,
-        autoHighlight: false,
-        onHover: ({
-          object,
-          x,
-          y,
-        }: {
-          object?: Feature<Geometry, GeoJsonProperties> | null;
-          x: number;
-          y: number;
-        }) => {
-          if (!object) {
-            onRegionHover?.(null);
-            setDetail(null);
-            setTooltipPosition(null);
-            return;
-          }
-          const record = buildRegionRecord(object, regionFallbackReason);
+        minZoom: 3,
+        maxZoom: 19,
+        pitch: 0,
+      });
+
+      mapRef.current = map;
+      map.dragRotate.disable();
+      map.touchZoomRotate.disableRotation();
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        "top-right",
+      );
+
+      const bindStyleState = () => {
+        const nextLabelLayerId = findLabelLayerId(map);
+        setLabelLayerId(nextLabelLayerId);
+        tuneBasemapLabels(map, basemapId);
+        applyOperationalLayers(map, dataset, {
+          showRoads,
+          showWater,
+          showSettlements,
+          selectedRegionId,
+          droneMode,
+          labelLayerId: nextLabelLayerId,
+          contributions,
+          pendingContributionCoordinate,
+        });
+
+        if (viewMode === "urban-3d") {
+          ensureBuildingsLayer(map, nextLabelLayerId);
+        } else {
+          removeBuildingsLayer(map);
+        }
+      };
+
+      map.on("load", () => {
+        bindStyleState();
+        requestAnimationFrame(() => {
+          map.resize();
+          setIsMapReady(true);
+        });
+      });
+
+      map.on("style.load", bindStyleState);
+
+      map.on("mousemove", (event: any) => {
+        const currentDataset = datasetRef.current;
+        const adminLayerIds = currentDataset.countries.map((country) =>
+          layerId(country.slug, "admin-fill"),
+        );
+        const waterLayerIds = currentDataset.countries.flatMap((country) => [
+          layerId(country.slug, "water-overview"),
+          layerId(country.slug, "water-detail"),
+        ]);
+        const settlementLayerIds = currentDataset.countries.flatMap((country) => [
+          layerId(country.slug, "settlements-overview"),
+          layerId(country.slug, "settlements-detail"),
+        ]);
+        const contributionLayerId = layerId("contributions", "points");
+
+        const features = map.queryRenderedFeatures(event.point, {
+          layers: [
+            ...adminLayerIds,
+            ...waterLayerIds,
+            ...settlementLayerIds,
+            contributionLayerId,
+          ].filter((id) => map.getLayer(id)),
+        }) as MapGeoJSONFeature[];
+
+        if (!features.length) {
+          onRegionHover?.(null);
+          setDetail(null);
+          setTooltipPosition(null);
+          return;
+        }
+
+        const feature = features[0];
+        const sourceSlug =
+          currentDataset.countries.find((country) => feature.layer.id.includes(country.slug))?.slug ??
+          "country";
+
+        if (feature.layer.id.includes("admin-fill")) {
+          const record = buildRegionRecordFromProperties(
+            feature.properties ?? {},
+            sourceSlug,
+            regionFallbackReason,
+          );
           onRegionHover?.(record);
           setDetail({
             kind: "region",
@@ -552,402 +848,95 @@ export function MapView({
             ],
             accent: "amber",
           });
-          setTooltipPosition({ x, y });
-        },
-        onClick: ({ object }: { object?: Feature<Geometry, GeoJsonProperties> | null }) => {
-          if (contributionMode) return;
-          if (!object) return;
-          const record = buildRegionRecord(object, regionFallbackReason);
-          onRegionSelect?.(record);
-          mapRef.current?.fitBounds(getFeatureBounds(object), {
+          setTooltipPosition({ x: event.point.x, y: event.point.y });
+          return;
+        }
+
+        if (feature.layer.id.includes("water")) {
+          setDetail({
+            kind: "osm",
+            id: `${sourceSlug}-water`,
+            title:
+              String(feature.properties?.name ?? feature.properties?.amenity ?? t("demo.water")) ||
+              t("demo.water"),
+            badges: [t("demo.water")],
+            accent: "blue",
+          });
+          setTooltipPosition({ x: event.point.x, y: event.point.y });
+          return;
+        }
+
+        if (feature.layer.id.includes("settlements")) {
+          setDetail({
+            kind: "osm",
+            id: `${sourceSlug}-settlement`,
+            title: String(feature.properties?.name ?? t("demo.settlements")),
+            badges: [t("demo.settlements")],
+            accent: "slate",
+          });
+          setTooltipPosition({ x: event.point.x, y: event.point.y });
+          return;
+        }
+
+        if (feature.layer.id === contributionLayerId) {
+          setDetail({
+            kind: "osm",
+            id: String(feature.properties?.id ?? "contribution"),
+            title: "Contribution terrain",
+            badges: [
+              String(feature.properties?.type ?? "terrain"),
+              String(feature.properties?.value ?? "validated"),
+            ],
+            accent: "green",
+          });
+          setTooltipPosition({ x: event.point.x, y: event.point.y });
+        }
+      });
+
+      map.on("click", (event: any) => {
+        if (contributionModeRef.current) {
+          onMapClickRef.current?.([event.lngLat.lng, event.lngLat.lat]);
+          return;
+        }
+
+        const currentDataset = datasetRef.current;
+        const adminLayerIds = currentDataset.countries.map((country) =>
+          layerId(country.slug, "admin-fill"),
+        );
+        const features = map.queryRenderedFeatures(event.point, {
+          layers: adminLayerIds.filter((id) => map.getLayer(id)),
+        }) as MapGeoJSONFeature[];
+
+        if (!features.length) return;
+
+        const feature = features[0];
+        const sourceSlug =
+          currentDataset.countries.find((country) => feature.layer.id.includes(country.slug))?.slug ??
+          "country";
+        const record = buildRegionRecordFromProperties(
+          feature.properties ?? {},
+          sourceSlug,
+          regionFallbackReason,
+        );
+        onRegionSelect?.(record);
+
+        const exactFeature = dataset.admin.features.find(
+          (item) => String(item.properties?.feature_id) === record.id,
+        );
+
+        if (exactFeature) {
+          map.fitBounds(getFeatureBounds(exactFeature as Feature<Geometry, GeoJsonProperties>), {
             padding: { top: 60, bottom: 60, left: 60, right: 60 },
-            duration: 600,
+            duration: 550,
             maxZoom: 9.2,
           });
-        },
-      }),
-    ];
-
-
-    if (showRoads && dataset.layers.osm_roads) {
-      layers.push(
-        new GeoJsonLayer({
-          id: "osm-roads",
-          data: dataset.layers.osm_roads,
-          pickable: false,
-          stroked: true,
-          filled: false,
-          lineWidthMinPixels: 1,
-          getLineWidth: zoom >= 9 ? (droneMode ? 1.5 : 2.2) : droneMode ? 0.6 : 0.9,
-          getLineColor: roadLineColor(droneMode),
-          updateTriggers: { getLineWidth: [zoom, droneMode], getLineColor: [droneMode] },
-          beforeId: labelLayerId ?? undefined,
-          autoHighlight: false,
-        }),
-      );
-    }
-
-    if (showWater) {
-      layers.push(
-        new ScatterplotLayer({
-          id: "osm-water-overview",
-          data: waterOverviewRecords,
-          pickable: true,
-          minZoom: 0,
-          maxZoom: 7.15,
-          getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [45, 140, 255, osmPointAlpha(droneMode, 200)],
-          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 220)],
-          stroked: true,
-          filled: true,
-          radiusScale: 6,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 7,
-          getRadius: 70,
-          beforeId: labelLayerId ?? undefined,
-          parameters: { depthTest: false },
-          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
-          autoHighlight: false,
-          onHover: ({
-            object,
-            x,
-            y,
-          }: {
-            object?: PointRecord | null;
-            x: number;
-            y: number;
-          }) => {
-            if (!object) {
-              setDetail(null);
-              setTooltipPosition(null);
-              return;
-            }
-            setDetail({
-              kind: "osm",
-              id: object.id,
-              title: object.label,
-              badges: [object.line1, object.line2 || undefined],
-              accent: "blue",
-            });
-            setTooltipPosition({ x, y });
-          },
-        }),
-      );
-      layers.push(
-        new ScatterplotLayer({
-          id: "osm-water-detail",
-          data: waterPoints,
-          pickable: true,
-          minZoom: 7.15,
-          getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [45, 140, 255, osmPointAlpha(droneMode, 220)],
-          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 235)],
-          stroked: true,
-          filled: true,
-          radiusScale: 6.5,
-          radiusMinPixels: 5,
-          radiusMaxPixels: 9,
-          getRadius: 82,
-          beforeId: labelLayerId ?? undefined,
-          parameters: { depthTest: false },
-          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
-          autoHighlight: false,
-          onHover: ({
-            object,
-            x,
-            y,
-          }: {
-            object?: PointRecord | null;
-            x: number;
-            y: number;
-          }) => {
-            if (!object) {
-              setDetail(null);
-              setTooltipPosition(null);
-              return;
-            }
-            setDetail({
-              kind: "osm",
-              id: object.id,
-              title: object.label,
-              badges: [object.line1, object.line2 || undefined],
-              accent: "blue",
-            });
-            setTooltipPosition({ x, y });
-          },
-        }),
-      );
-    }
-
-    if (showSettlements) {
-      layers.push(
-        new ScatterplotLayer({
-          id: "osm-settlements-overview",
-          data: settlementOverviewRecords,
-          pickable: true,
-          minZoom: 0,
-          maxZoom: 7.15,
-          getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [35, 35, 35, osmPointAlpha(droneMode, 176)],
-          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 160)],
-          stroked: true,
-          filled: true,
-          radiusScale: 6,
-          radiusMinPixels: 2.5,
-          radiusMaxPixels: 6,
-          getRadius: 80,
-          beforeId: labelLayerId ?? undefined,
-          parameters: { depthTest: false },
-          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
-          autoHighlight: false,
-          onHover: ({
-            object,
-            x,
-            y,
-          }: {
-            object?: PointRecord | null;
-            x: number;
-            y: number;
-          }) => {
-            if (!object) {
-              setDetail(null);
-              setTooltipPosition(null);
-              return;
-            }
-            setDetail({
-              kind: "osm",
-              id: object.id,
-              title: object.label,
-              badges: [settlementsLabel],
-              accent: "slate",
-            });
-            setTooltipPosition({ x, y });
-          },
-        }),
-      );
-      layers.push(
-        new ScatterplotLayer({
-          id: "osm-settlements-detail",
-          data: settlementPoints,
-          pickable: true,
-          minZoom: 7.15,
-          getPosition: (item: PointRecord) => item.coordinates,
-          getFillColor: [35, 35, 35, osmPointAlpha(droneMode, 180)],
-          getLineColor: [255, 255, 255, osmPointAlpha(droneMode, 160)],
-          stroked: true,
-          filled: true,
-          radiusScale: 7,
-          radiusMinPixels: 3,
-          radiusMaxPixels: 8,
-          getRadius: 90,
-          beforeId: labelLayerId ?? undefined,
-          parameters: { depthTest: false },
-          updateTriggers: { getFillColor: [droneMode], getLineColor: [droneMode] },
-          autoHighlight: false,
-          onHover: ({
-            object,
-            x,
-            y,
-          }: {
-            object?: PointRecord | null;
-            x: number;
-            y: number;
-          }) => {
-            if (!object) {
-              setDetail(null);
-              setTooltipPosition(null);
-              return;
-            }
-            setDetail({
-              kind: "osm",
-              id: object.id,
-              title: object.label,
-              badges: [settlementsLabel],
-              accent: "slate",
-            });
-            setTooltipPosition({ x, y });
-          },
-        }),
-      );
-    }
-
-    if (contributions) {
-      layers.push(
-        new GeoJsonLayer({
-          id: "field-contributions",
-          data: contributions,
-          pickable: true,
-          stroked: true,
-          filled: true,
-          pointRadiusMinPixels: 6,
-          pointRadiusMaxPixels: 12,
-          pointRadiusScale: 8,
-          getPointRadius: 70,
-          getFillColor: (feature: Feature<Geometry, GeoJsonProperties>) =>
-            contributionColor(feature.properties?.type),
-          getLineColor: [255, 255, 255, 235],
-          lineWidthMinPixels: 1,
-          parameters: { depthTest: false },
-          beforeId: labelLayerId ?? undefined,
-          autoHighlight: false,
-          onHover: ({
-            object,
-            x,
-            y,
-          }: {
-            object?: Feature<Geometry, GeoJsonProperties> | null;
-            x: number;
-            y: number;
-          }) => {
-            if (!object) {
-              setDetail(null);
-              setTooltipPosition(null);
-              return;
-            }
-            setDetail({
-              kind: "osm",
-              id: String(object.properties?.id ?? "contribution"),
-              title: "Contribution terrain",
-              badges: [
-                String(object.properties?.type ?? "terrain"),
-                String(object.properties?.value ?? "validated"),
-              ],
-              accent: "green",
-            });
-            setTooltipPosition({ x, y });
-          },
-        }),
-      );
-    }
-
-    if (pendingContributionCoordinate) {
-      layers.push(
-        new ScatterplotLayer({
-          id: "pending-field-contribution",
-          data: [pendingContributionCoordinate],
-          pickable: false,
-          getPosition: (item: [number, number]) => item,
-          getFillColor: [240, 193, 112, 230],
-          getLineColor: [255, 255, 255, 255],
-          stroked: true,
-          filled: true,
-          radiusScale: 8,
-          radiusMinPixels: 8,
-          radiusMaxPixels: 14,
-          getRadius: 85,
-          parameters: { depthTest: false },
-          beforeId: labelLayerId ?? undefined,
-        }),
-      );
-    }
-
-    return layers;
-  }, [
-    contributions,
-    contributionMode,
-    dataset.admin,
-    dataset.layers.osm_roads,
-    pendingContributionCoordinate,
-    regionFallbackReason,
-    selectedRegionId,
-    settlementsLabel,
-    settlementOverviewRecords,
-    settlementPoints,
-    showRoads,
-    showSettlements,
-    showWater,
-    countryLabels,
-    droneMode,
-    labelLayerId,
-    t,
-    waterLabel,
-    waterOverviewRecords,
-    waterPoints,
-    zoom,
-    onRegionHover,
-    onRegionSelect,
-  ]);
-
-  useEffect(() => {
-    if (!mapRootRef.current || typeof window === "undefined") return;
-    let mounted = true;
-
-    const run = async () => {
-      const [{ default: maplibregl }, { MapboxOverlay }] = await Promise.all([
-        import("maplibre-gl"),
-        import("@deck.gl/mapbox"),
-      ]);
-
-      if (!mounted || !mapRootRef.current) return;
-
-      const map = new maplibregl.Map({
-        container: mapRootRef.current,
-        style: initialBasemapStyleRef.current,
-        center: INITIAL_CENTER,
-        zoom: INITIAL_ZOOM,
-        minZoom: 3,
-        maxZoom: 19,
-        pitch: 0,
-      });
-
-      mapRef.current = map;
-      map.dragRotate.disable();
-      map.touchZoomRotate.disableRotation();
-      map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
-        "top-right",
-      );
-
-      const overlay = new MapboxOverlay({ interleaved: true, layers });
-      overlayRef.current = overlay;
-      map.addControl(overlay);
-      basemapStyleRef.current = currentBasemap.style;
-
-      const sync = () => setZoom(map.getZoom());
-
-      const bindStyleState = () => {
-        const nextLabelLayerId = findLabelLayerId(map);
-        setLabelLayerId((current) =>
-          current === nextLabelLayerId ? current : nextLabelLayerId,
-        );
-        tuneBasemapLabels(map, basemapId);
-        if (viewMode === "urban-3d") {
-          ensureBuildingsLayer(map, nextLabelLayerId);
         } else {
-          removeBuildingsLayer(map);
+          map.easeTo({
+            center: event.lngLat,
+            zoom: Math.max(map.getZoom(), 7.4),
+            duration: 500,
+          });
         }
-        overlay.setProps({ layers });
-      };
-
-      map.on("load", () => {
-        bindStyleState();
-        map.fitBounds(mapBounds(dataset.admin), {
-          padding: { top: 120, bottom: 120, left: 120, right: 120 },
-          duration: 0,
-          maxZoom: 5.2,
-        });
-        sync();
-        setIsMapReady(true);
-      });
-
-      map.on("styledata", () => {
-        // Use a much lighter sync for style data to avoid loops
-        const nextLabelLayerId = findLabelLayerId(map);
-        setLabelLayerId((current) =>
-          current === nextLabelLayerId ? current : nextLabelLayerId,
-        );
-        // We only tune labels if they aren't already tuned? 
-        // Actually, we'll just be careful not to trigger infinite loops.
-        // Moving tuneBasemapLabels out of here for now, or making it smarter.
-      });
-
-      // Style load is the best place to re-apply our custom tuning
-      map.on("style.load", bindStyleState);
-
-      map.on("zoomend", sync);
-      map.on("click", (event: any) => {
-        if (!contributionModeRef.current) return;
-        onMapClickRef.current?.([event.lngLat.lng, event.lngLat.lat]);
       });
     };
 
@@ -955,15 +944,10 @@ export function MapView({
 
     return () => {
       mounted = false;
-      overlayRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
   }, []);
-
-  useEffect(() => {
-    overlayRef.current?.setProps({ layers });
-  }, [layers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -976,13 +960,42 @@ export function MapView({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !map.isStyleLoaded()) return;
 
+    applyOperationalLayers(map, dataset, {
+      showRoads,
+      showWater,
+      showSettlements,
+      selectedRegionId,
+      droneMode,
+      labelLayerId,
+      contributions,
+      pendingContributionCoordinate,
+    });
+
+    tuneBasemapLabels(map, basemapId);
     if (viewMode === "urban-3d") {
       ensureBuildingsLayer(map, labelLayerId);
     } else {
       removeBuildingsLayer(map);
     }
+  }, [
+    basemapId,
+    contributions,
+    dataset,
+    droneMode,
+    labelLayerId,
+    pendingContributionCoordinate,
+    selectedRegionId,
+    showRoads,
+    showSettlements,
+    showWater,
+    viewMode,
+  ]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
 
     map.easeTo({
       pitch: droneMode ? 70 : viewMode === "urban-3d" ? 58 : 0,
@@ -993,46 +1006,11 @@ export function MapView({
           : map.getZoom(),
       duration: 900,
     });
-  }, [viewMode, droneMode, labelLayerId]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !selectedRegionId) return;
-    const feature = dataset.admin.features.find(
-      (item) => item.properties?.feature_id === selectedRegionId,
-    );
-    if (!feature) return;
-
-    map.fitBounds(getFeatureBounds(feature), {
-      padding: { top: 60, bottom: 60, left: 60, right: 60 },
-      duration: 550,
-      maxZoom: 9.2,
-    });
-    const record = regionIndex.get(selectedRegionId);
-    if (record) {
-      setDetail({
-        kind: "region",
-        id: record.id,
-        title: record.name,
-        badges: [
-          t("demo.mapTooltipLineRegion", {
-            score: formatScore100(record.score100),
-            phase: record.ipcPhase ?? "n/a",
-          }),
-          t("demo.mapTooltipLineRegion2", {
-            p3: formatCompactNumber(record.ipcPeopleP3Plus),
-            population: formatCompactNumber(record.ipcPopulationTotal),
-          }),
-        ],
-        accent: "amber",
-      });
-      setTooltipPosition(null);
-    }
-  }, [dataset.admin.features, regionIndex, selectedRegionId, t]);
+  }, [viewMode, droneMode]);
 
   return (
     <div className="map-shell relative h-full w-full overflow-hidden bg-[#081119]">
-      <div id="map-root" ref={mapRootRef} className="h-full w-full" />
+      <div id="map-root" ref={mapRootRef} className="h-full w-full bg-[#081119]" />
 
       {!isMapReady ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(24,40,56,0.92),rgba(8,17,26,0.98))]">

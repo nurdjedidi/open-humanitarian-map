@@ -19,7 +19,7 @@ import {
   loadCombinedLayer,
   getTimelineFallbackSummary,
   getTimelineYears,
-  loadCombinedDataset,
+  loadCombinedDatasetProgressive,
   projectDatasetForYear,
 } from "~/data/runtime-datasets";
 import { BASEMAPS, MapView, type BasemapId, type ViewMode } from "./map-view";
@@ -27,10 +27,68 @@ import { FloatingControlButtons, FloatingSidePanel, type FloatingPanelId } from 
 import { OverlayHeader } from "./map-first/overlay-header";
 import { RegionTimelinePanel } from "./map-first/region-timeline-panel";
 
+function hasCountryTiles(dataset: MapDataset, layerId: "osm_roads" | "osm_water" | "osm_settlements") {
+  return dataset.countries.some((country) => Boolean(country.tileUrls[layerId]));
+}
+
+function AppLoader() {
+  const { t } = useI18n();
+
+  return (
+    <main className="relative h-screen w-screen overflow-hidden bg-[#061019] text-[#e8eef5]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,rgba(132,183,228,0.24),transparent_30%),radial-gradient(circle_at_80%_5%,rgba(240,193,112,0.20),transparent_28%),linear-gradient(135deg,#07111a_0%,#0a1722_48%,#07111a_100%)]" />
+      <div className="absolute inset-0 opacity-45 [background-image:linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.045)_1px,transparent_1px)] [background-size:72px_72px]" />
+
+      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-3 py-3 md:px-4 md:py-4">
+        <div className="flex min-w-0 items-center gap-3 rounded-[22px] border border-white/10 bg-[#08131e]/88 px-3 py-2.5 shadow-[0_18px_60px_rgba(2,6,12,0.32)] backdrop-blur-xl md:px-4 md:py-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#08131e]/40 p-1 md:h-11 md:w-11 md:rounded-2xl">
+            <img src="/favicon.svg" alt="OHM" className="h-full w-full object-contain" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-[#84b7e4] md:text-[11px] md:tracking-[0.22em]">
+              Open Humanitarian Map
+            </p>
+            <h1 className="truncate text-sm font-extrabold text-[#f4f8fc] md:text-lg">
+              West Africa priority map
+            </h1>
+          </div>
+        </div>
+        <div className="hidden items-center gap-2 rounded-[22px] border border-white/10 bg-[#08131e]/80 px-3 py-2 shadow-[0_18px_60px_rgba(2,6,12,0.24)] backdrop-blur-xl md:flex">
+          <span className="h-9 w-24 rounded-full bg-white/[0.06]" />
+          <span className="h-9 w-24 rounded-full bg-white/[0.06]" />
+          <span className="h-9 w-20 rounded-full bg-white/[0.06]" />
+        </div>
+      </header>
+
+      <div className="absolute left-3 top-[86px] z-10 flex flex-col gap-2 md:left-4 md:top-[96px]">
+        {[0, 1, 2, 3].map((item) => (
+          <span
+            key={item}
+            className="h-12 w-12 rounded-2xl border border-white/10 bg-[#08131e]/75 shadow-[0_12px_34px_rgba(2,6,12,0.3)] backdrop-blur-xl"
+          />
+        ))}
+      </div>
+
+      <div className="absolute inset-0 z-20 flex items-center justify-center px-6">
+        <div className="flex max-w-[320px] flex-col items-center gap-3 rounded-3xl border border-white/10 bg-[#07111a]/70 px-6 py-5 text-center text-[#eef4fa] shadow-[0_24px_80px_rgba(2,6,12,0.36)] backdrop-blur-md">
+          <div className="map-loader h-10 w-10 rounded-full border-2 border-white/15 border-t-[#f0c170]" />
+          <div className="text-sm font-semibold uppercase tracking-[0.22em] text-[#e8bd78]">
+            {t("demo.mapLoaderTitle")}
+          </div>
+          <div className="text-sm leading-6 text-[#d1dce6]">
+            {t("demo.mapLoaderBody")}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export function MapFirstPage() {
   const { t } = useI18n();
   const [dataset, setDataset] = useState<MapDataset | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDatasetComplete, setIsDatasetComplete] = useState(false);
   const [showWater, setShowWater] = useState(false);
   const [showSettlements, setShowSettlements] = useState(false);
   const [showRoads, setShowRoads] = useState(true);
@@ -70,10 +128,16 @@ export function MapFirstPage() {
 
   useEffect(() => {
     let mounted = true;
-    loadCombinedDataset()
+    loadCombinedDatasetProgressive((partial) => {
+      if (!mounted) return;
+      setDataset(partial);
+      const years = getTimelineYears(partial);
+      setActiveYear((current) => current ?? (years.length ? years[years.length - 1] : null));
+    })
       .then((next) => {
         if (!mounted) return;
         setDataset(next);
+        setIsDatasetComplete(true);
         const years = getTimelineYears(next);
         setActiveYear(years.length ? years[years.length - 1] : null);
       })
@@ -92,11 +156,19 @@ export function MapFirstPage() {
   }, []);
 
   useEffect(() => {
-    if (!dataset) return;
+    if (!dataset || !isDatasetComplete) return;
     const requestedLayers = [
-      showRoads && !dataset.layers.osm_roads ? "osm_roads" : null,
-      showWater && !dataset.layers.osm_water ? "osm_water" : null,
-      showSettlements && !dataset.layers.osm_settlements ? "osm_settlements" : null,
+      showRoads && !dataset.layers.osm_roads && !hasCountryTiles(dataset, "osm_roads")
+        ? "osm_roads"
+        : null,
+      showWater && !dataset.layers.osm_water && !hasCountryTiles(dataset, "osm_water")
+        ? "osm_water"
+        : null,
+      showSettlements &&
+      !dataset.layers.osm_settlements &&
+      !hasCountryTiles(dataset, "osm_settlements")
+        ? "osm_settlements"
+        : null,
     ].filter(Boolean) as Array<"osm_roads" | "osm_water" | "osm_settlements">;
     if (!requestedLayers.length) return;
 
@@ -126,7 +198,7 @@ export function MapFirstPage() {
     return () => {
       cancelled = true;
     };
-  }, [dataset, showRoads, showWater, showSettlements]);
+  }, [dataset, isDatasetComplete, showRoads, showWater, showSettlements]);
 
   const basemapLabel = (id: BasemapId) => {
     if (id === "dark-matter") {
@@ -216,9 +288,7 @@ export function MapFirstPage() {
   }
 
   if (!displayDataset || !dataset) {
-    return (
-      <main className="h-screen w-screen bg-[#061019]" />
-    );
+    return <AppLoader />;
   }
 
   return (

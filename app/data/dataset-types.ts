@@ -37,6 +37,20 @@ export type ManifestSummary = {
 export type ManifestLike = {
   geojson?: string;
   artifacts?: Record<string, { geojson?: string; label?: string; kind?: string }>;
+  tiles?: {
+    format?: string;
+    artifacts?: Record<
+      string,
+      {
+        format?: string;
+        pmtiles?: string;
+        source_layer?: string;
+        minzoom?: number;
+        maxzoom?: number;
+        geojson_fallback?: string;
+      }
+    >;
+  };
   legend?: ManifestLegendItem[];
   layers?: ManifestLayer[];
   summary?: ManifestSummary;
@@ -133,4 +147,12 @@ export type MapDataset = {
   summary: ManifestSummary;
   topRegions: RegionRecord[];
   layerDefaults: Record<SupportedLayerId, boolean>;
+  countries: Array<{
+    slug: string;
+    title: string;
+    manifestName: string;
+    tileUrls: Partial<Record<SupportedLayerId, string>>;
+    tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
+  }>;
+  adminHydrated: boolean;
 };
