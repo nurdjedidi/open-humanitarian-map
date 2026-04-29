@@ -146,7 +146,7 @@ export function ContributionControls({
 
   return (
     <>
-      <div className="absolute left-3 top-[254px] z-30 md:left-4 md:top-[264px]">
+      <div className="absolute left-3 top-[310px] z-30 md:left-4 md:top-[320px]">
         <button
           type="button"
           onClick={toggle}
@@ -164,7 +164,7 @@ export function ContributionControls({
       </div>
 
       {contributionMode ? (
-        <aside className="absolute left-[76px] top-[264px] z-40 hidden w-[320px] rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 text-[#edf5fb] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:block">
+        <aside className="absolute left-[76px] top-[320px] z-40 hidden w-[320px] rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 text-[#edf5fb] shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl md:block">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">

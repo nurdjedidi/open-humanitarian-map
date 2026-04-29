@@ -1,0 +1,79 @@
+{
+  "countries": [
+    {
+      "slug": "benin",
+      "title": "Benin",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "burkina-faso",
+      "title": "Burkina-Faso",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "cote-d-ivoire",
+      "title": "Côte d'Ivoire",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "gambie",
+      "title": "Gambie",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "ghana",
+      "title": "Ghana",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "guinea",
+      "title": "Guinée",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "guinea-bissau",
+      "title": "Guinea-Bissau",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "liberia",
+      "title": "Liberia",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "mali",
+      "title": "Mali",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "mauritania",
+      "title": "Mauritania",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "niger",
+      "title": "Niger",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "nigeria",
+      "title": "Nigeria",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "senegal",
+      "title": "Sénégal",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "sierra-leone",
+      "title": "Sierra-Leone",
+      "manifest": "current.manifest.json"
+    },
+    {
+      "slug": "togo",
+      "title": "Togo",
+      "manifest": "current.manifest.json"
+    }
+  ]
+}

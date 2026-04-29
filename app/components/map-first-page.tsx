@@ -12,9 +12,11 @@ import {
 import { AdminReviewPanel } from "./contributions/admin-review-panel";
 import { AuthModal } from "./contributions/auth-modal";
 import { ContributionControls } from "./contributions/contribution-controls";
-import type { MapDataset } from "~/data/datasets";
+import type { MapDataset } from "~/data/dataset-types";
 import {
+  getIpcCountrySummary,
   getRegionDetail,
+  loadCombinedLayer,
   getTimelineFallbackSummary,
   getTimelineYears,
   loadCombinedDataset,
@@ -72,7 +74,6 @@ export function MapFirstPage() {
       .then((next) => {
         if (!mounted) return;
         setDataset(next);
-        setShowRoads(next.layerDefaults.osm_roads);
         const years = getTimelineYears(next);
         setActiveYear(years.length ? years[years.length - 1] : null);
       })
@@ -89,6 +90,43 @@ export function MapFirstPage() {
     void refreshAuth();
     void refreshContributions();
   }, []);
+
+  useEffect(() => {
+    if (!dataset) return;
+    const requestedLayers = [
+      showRoads && !dataset.layers.osm_roads ? "osm_roads" : null,
+      showWater && !dataset.layers.osm_water ? "osm_water" : null,
+      showSettlements && !dataset.layers.osm_settlements ? "osm_settlements" : null,
+    ].filter(Boolean) as Array<"osm_roads" | "osm_water" | "osm_settlements">;
+    if (!requestedLayers.length) return;
+
+    let cancelled = false;
+    Promise.all(
+      requestedLayers.map((layerId) =>
+        loadCombinedLayer(layerId).then((collection) => [layerId, collection] as const),
+      ),
+    )
+      .then((loadedLayers) => {
+        if (cancelled) return;
+        setDataset((current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            layers: {
+              ...current.layers,
+              ...Object.fromEntries(loadedLayers),
+            },
+          };
+        });
+      })
+      .catch((error) => {
+        console.warn("[OHM] Couche OSM non chargee", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset, showRoads, showWater, showSettlements]);
 
   const basemapLabel = (id: BasemapId) => {
     if (id === "dark-matter") {
@@ -119,6 +157,10 @@ export function MapFirstPage() {
   );
   const timelineFallbacks = useMemo(
     () => (dataset ? getTimelineFallbackSummary(dataset, activeYear) : []),
+    [dataset, activeYear],
+  );
+  const ipcSummary = useMemo(
+    () => (dataset ? getIpcCountrySummary(dataset, activeYear) : []),
     [dataset, activeYear],
   );
 
@@ -231,6 +273,7 @@ export function MapFirstPage() {
         activeYear={activeYear}
         setActiveYear={setActiveYear}
         timelineFallbacks={timelineFallbacks}
+        ipcSummary={ipcSummary}
       />
 
       <RegionTimelinePanel

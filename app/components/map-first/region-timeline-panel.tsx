@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 
-import type { RegionDetail, RegionTimelineEntry } from "~/data/datasets";
+import type { RegionDetail, RegionTimelineEntry } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 
 function phaseTone(phase: number | null) {

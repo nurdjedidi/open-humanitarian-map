@@ -8,7 +8,7 @@ import type {
 import type { StyleSpecification } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { MapDataset, RegionRecord } from "~/data/datasets";
+import type { MapDataset, RegionRecord } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import {
   featureName,
@@ -79,7 +79,7 @@ const INITIAL_CENTER: [number, number] = [-14.7, 14.5];
 const INITIAL_ZOOM = 4.55;
 
 function adminFillAlpha(droneMode: boolean) {
-  return droneMode ? 52 : 146;
+  return droneMode ? 58 : 168;
 }
 
 function adminBorderColor(

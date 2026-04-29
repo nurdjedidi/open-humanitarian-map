@@ -31,7 +31,7 @@ export const messages = {
       timelineFallbackNote:
         "Certaines zones n'ont pas de donnée pour cette année. Dernière donnée utilisée: {details}.",
       population2020Note:
-        "Population de référence: raster WorldPop 2020 agrégé par région.",
+        "Population de référence: raster WorldPop 2020/2026 agrégé par région.",
       layersHint:
         "Les routes restent visibles par défaut. L’eau et les lieux habités deviennent plus utiles en zoomant.",
       basemap: "Fond de carte",
@@ -108,7 +108,7 @@ export const messages = {
       timelineFallbackNote:
         "Some areas do not have data for this year. Latest available data used: {details}.",
       population2020Note:
-        "Population reference: WorldPop 2020 raster aggregated by region.",
+        "Population reference: WorldPop 2020/2026 raster aggregated by region.",
       layersHint:
         "Roads stay visible by default. Water and settlements become more useful as you zoom in.",
       basemap: "Basemap",
@@ -174,3 +174,4 @@ export function getMessage(locale: Locale, key: string): string | undefined {
 
   return typeof current === "string" ? current : undefined;
 }
+

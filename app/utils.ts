@@ -121,11 +121,12 @@ export function priorityColor(score: unknown, alpha = 210): [number, number, num
 
   const clamped = clamp(parsed, 0, 1);
   const stops: Array<[number, [number, number, number]]> = [
-    [0, [255, 240, 168]],
-    [0.28, [255, 187, 56]],
-    [0.55, [235, 96, 35]],
-    [0.8, [168, 28, 25]],
-    [1, [52, 7, 11]],
+    [0, [255, 247, 188]],
+    [0.2, [255, 210, 92]],
+    [0.42, [245, 145, 35]],
+    [0.62, [222, 72, 39]],
+    [0.82, [142, 28, 29]],
+    [1, [58, 8, 14]],
   ];
 
   for (let index = 0; index < stops.length - 1; index += 1) {

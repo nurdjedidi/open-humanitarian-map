@@ -1,0 +1,534 @@
+{
+  "geojson": "current.geojson",
+  "world_geojson": null,
+  "artifacts": {
+    "admin_priority": {
+      "geojson": "current.admin_priority.geojson",
+      "label": "Carte prioritaire",
+      "kind": "primary"
+    },
+    "osm_roads": {
+      "geojson": "current.osm_roads.geojson",
+      "label": "Routes principales",
+      "kind": "roads"
+    },
+    "osm_water": {
+      "geojson": "current.osm_water.geojson",
+      "label": "Points d'eau",
+      "kind": "water_points"
+    },
+    "osm_settlements": {
+      "geojson": "current.osm_settlements.geojson",
+      "label": "Lieux habites",
+      "kind": "settlements"
+    }
+  },
+  "run": {
+    "zone": "Togo",
+    "output_name": "map",
+    "created_at": "2026-04-29T06:08:11",
+    "uploaded_files": [
+      "tgo_admin0.geojson",
+      "tgo_admin1.geojson",
+      "tgo_admin2.geojson",
+      "tgo_admin3.geojson",
+      "ipc-sen.xlsx",
+      "tgo_pop_2026.tif"
+    ]
+  },
+  "profile": {
+    "source_path": "C:\\Users\\djedi\\AppData\\Local\\Temp\\ohm_upload_owmdyi6e\\tgo_admin2.geojson",
+    "source_type": "geojson",
+    "feature_count": 40,
+    "has_geometry": true,
+    "columns": [
+      "adm2_name",
+      "adm2_name1",
+      "adm2_name2",
+      "adm2_name3",
+      "adm2_pcode",
+      "adm1_name",
+      "adm1_name1",
+      "adm1_name2",
+      "adm1_name3",
+      "adm1_pcode",
+      "adm0_name",
+      "adm0_name1",
+      "adm0_name2",
+      "adm0_name3",
+      "adm0_pcode",
+      "valid_on",
+      "valid_to",
+      "area_sqkm",
+      "version",
+      "lang",
+      "lang1",
+      "lang2",
+      "lang3",
+      "adm2_ref_name",
+      "center_lat",
+      "center_lon",
+      "tgo_admin0_area_sqkm",
+      "tgo_admin0_center_lat",
+      "tgo_admin0_center_lon",
+      "tgo_admin0_count",
+      "tgo_admin1_area_sqkm",
+      "tgo_admin1_center_lat",
+      "tgo_admin1_center_lon",
+      "tgo_admin1_count",
+      "tgo_admin3_area_sqkm",
+      "tgo_admin3_center_lat",
+      "tgo_admin3_center_lon",
+      "tgo_admin3_count",
+      "ipc_sen_adm0_5_pcod2",
+      "ipc_sen_exercise_code",
+      "ipc_sen_exercise_year",
+      "ipc_sen_reference_code",
+      "ipc_sen_reference_year",
+      "ipc_sen_population",
+      "ipc_sen_phase_class",
+      "ipc_sen_phase1",
+      "ipc_sen_phase2",
+      "ipc_sen_phase3",
+      "ipc_sen_phase4",
+      "ipc_sen_phase5",
+      "ipc_sen_phase35",
+      "ipc_sen_foodconsumption_phase",
+      "ipc_sen_livelihoods_phase",
+      "ipc_sen_nutrition_phase",
+      "ipc_sen_mortality_phase",
+      "ipc_sen_fcg_poor",
+      "ipc_sen_fcg_borderline",
+      "ipc_sen_fcg_acceptable",
+      "ipc_sen_fcg_finalphase",
+      "ipc_sen_hdds_phase1",
+      "ipc_sen_hdds_phase2",
+      "ipc_sen_hdds_phase3",
+      "ipc_sen_hdds_phase4",
+      "ipc_sen_hdds_phase5",
+      "ipc_sen_hdds_finalphase",
+      "ipc_sen_hhs_phase1",
+      "ipc_sen_hhs_phase2",
+      "ipc_sen_hhs_phase3",
+      "ipc_sen_hhs_phase4",
+      "ipc_sen_hhs_phase5",
+      "ipc_sen_hhs_finalphase",
+      "ipc_sen_lhhcscat_nostrategies",
+      "ipc_sen_lhhcscat_stressstrategies",
+      "ipc_sen_lhhcscat_crisisstategies",
+      "ipc_sen_lhhcscat_emergencystrategies",
+      "ipc_sen_lhhcscat_finalphase",
+      "ipc_sen_rcsi_phase1",
+      "ipc_sen_rcsi_phase2",
+      "ipc_sen_rcsi_phase3",
+      "ipc_sen_rcsi_finalphase",
+      "ipc_sen_reference_label",
+      "ipc_sen_exercise_label",
+      "ipc_sen_chtype",
+      "ipc_sen_usethisperiod",
+      "ipc_sen_history",
+      "ipc_sen_history_count",
+      "ipc_sen_source_level",
+      "ipc_sen_inherited",
+      "tgo_pop_2026_mean",
+      "tgo_pop_2026_sum",
+      "geometry"
+    ],
+    "detected_fields": [
+      {
+        "logical_name": "geometry",
+        "source_name": "geometry",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "latitude",
+        "source_name": "center_lat",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "longitude",
+        "source_name": "center_lon",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "admin_name",
+        "source_name": "adm0_name",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population_total",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "ipc_phase",
+        "source_name": "ipc_sen_phase_class",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase1",
+        "source_name": "ipc_sen_phase1",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase2",
+        "source_name": "ipc_sen_phase2",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase3",
+        "source_name": "ipc_sen_phase3",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase4",
+        "source_name": "ipc_sen_phase4",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase5",
+        "source_name": "ipc_sen_phase5",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase35",
+        "source_name": "ipc_sen_phase35",
+        "confidence": 0.8
+      }
+    ],
+    "crs": "EPSG:4326"
+  },
+  "summary": {
+    "feature_count": 40,
+    "status_counts": {
+      "A surveiller": 27,
+      "Faible": 7,
+      "Donnees manquantes": 3,
+      "Prioritaire": 3
+    },
+    "score_min": 0.0,
+    "score_max": 0.6800117973371811,
+    "score_mean": 0.332209036152345,
+    "score_100_mean": 33.225,
+    "people_p3plus_total": 332147.14,
+    "osm_counts": {
+      "settlements": 2683,
+      "water_points": 660,
+      "health": 815,
+      "roads": 4222
+    },
+    "osm_source": "local_pbf",
+    "top_regions": [
+      {
+        "name": "Naki-Ouest",
+        "priority_rank": 1,
+        "priority_score": 0.6800117973371811,
+        "score_100": 68.0,
+        "priority_label": "Prioritaire",
+        "decision_reason": "28k personnes P3+, 21.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 28365.539999999997,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.21,
+        "ipc_population_total": 135074.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Kpendjal",
+        "priority_rank": 2,
+        "priority_score": 0.67778723727402,
+        "score_100": 67.8,
+        "priority_label": "Prioritaire",
+        "decision_reason": "21k personnes P3+, 22.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 21291.38,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.22,
+        "ipc_population_total": 96779.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Tone",
+        "priority_rank": 3,
+        "priority_score": 0.5177777777777778,
+        "score_100": 51.8,
+        "priority_label": "Prioritaire",
+        "decision_reason": "47k personnes P3+, 11.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2.0,
+        "ipc_people_p3plus": 46837.45,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.10999999999999999,
+        "ipc_population_total": 425795.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Keran",
+        "priority_rank": 4,
+        "priority_score": 0.49287405345507207,
+        "score_100": 49.3,
+        "priority_label": "A surveiller",
+        "decision_reason": "17k personnes P3+, 12.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2.0,
+        "ipc_people_p3plus": 16912.92,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.11999999999999998,
+        "ipc_population_total": 140941.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Oti",
+        "priority_rank": 5,
+        "priority_score": 0.4729513032802087,
+        "score_100": 47.3,
+        "priority_label": "A surveiller",
+        "decision_reason": "14k personnes P3+, 10.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 2.0,
+        "ipc_people_p3plus": 13673.6,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.1,
+        "ipc_population_total": 136736.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      }
+    ],
+    "data_quality": {
+      "missing_counts": {
+        "priority_score": 0,
+        "score_100": 0,
+        "ipc_phase_dominant": 3,
+        "ipc_people_p3plus": 0,
+        "ipc_people_p4plus": 0,
+        "ipc_share_p3plus": 3,
+        "ipc_population_total": 3
+      },
+      "rows_without_priority_score": 0,
+      "rows_with_missing_decision_reason": 0,
+      "osm_layers_available": [
+        "settlements",
+        "water_points",
+        "health",
+        "roads"
+      ]
+    },
+    "pipeline_log": [
+      "OSM local detecte: togo-260428.osm.pbf",
+      "Base admin choisie automatiquement: tgo_admin2",
+      "tgo_admin0: agregation spatiale terminee.",
+      "tgo_admin1: agregation spatiale terminee.",
+      "tgo_admin3: agregation spatiale terminee.",
+      "ipc-sen: filtre pays applique via adm0_name (1145/40338 lignes conservees pour {'togo'}).",
+      "ipc-sen: fusion tabulaire par region via adm2_pcod2 -> adm2_pcode (overlap=37, jointure directe).",
+      "tgo_pop_2026.tif: progression raster 10/40",
+      "tgo_pop_2026.tif: progression raster 20/40",
+      "tgo_pop_2026.tif: progression raster 30/40",
+      "tgo_pop_2026.tif: progression raster 40/40",
+      "tgo_pop_2026.tif: agregation raster par region terminee.",
+      "OSM local: lecture togo-260428.osm.pbf.",
+      "OSM local: extraction sur toute la zone du fichier .pbf.",
+      "OSM local: 2683 lieux, 660 eau, 815 sante, 4222 routes."
+    ],
+    "groq": {
+      "raw": "```json\n{\n  \"headline\": \"Humanitarian Map Summary\",\n  \"top_hotspots\": [\n    {\n      \"name\": \"Naki-Ouest\",\n      \"priority_rank\": 1,\n      \"priority_score\": 0.6800117973371811,\n      \"ipc_people_p3plus\": 28365.539999999997\n    },\n    {\n      \"name\": \"Kpendjal\",\n      \"priority_rank\": 2,\n      \"priority_score\": 0.67778723727402,\n      \"ipc_people_p3plus\": 21291.38\n    },\n    {\n      \"name\": \"Tone\",\n      \"priority_rank\": 3,\n      \"priority_score\": 0.5177777777777778,\n      \"ipc_people_p3plus\": 46837.45\n    }\n  ],\n  \"data_gaps\": {\n    \"missing_counts\": {\n      \"ipc_phase_dominant\": 3,\n      \"ipc_people_p3plus\": 0,\n      \"ipc_people_p4plus\": 0,\n      \"ipc_share_p3plus\": 3,\n      \"ipc_population_total\": 3\n    }\n  },\n  \"recommended_next_step\": \"Prioritize regions with high IPC scores and missing data\"\n}\n```"
+    }
+  },
+  "legend": [
+    {
+      "id": "admin_priority",
+      "label": "Priorite administrative",
+      "type": "choropleth",
+      "symbol": "fill",
+      "color_scale": [
+        "#fff1aa",
+        "#f5b437",
+        "#dc4b23",
+        "#91141a",
+        "#23080c"
+      ],
+      "meaning": "Couche principale: gravite IPC + population affectee.",
+      "zoom": {
+        "min": 0,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\togo\\map_20260429_060811.geojson",
+      "artifact": "data\\outputs\\togo\\map_20260429_060811.admin_priority.geojson"
+    },
+    {
+      "id": "osm_water",
+      "label": "Points d'eau",
+      "type": "point",
+      "symbol": "droplet",
+      "color": "#3b82f6",
+      "meaning": "Contexte terrain: points d'eau localises.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\togo\\map_20260429_060811.osm_context_water.geojson",
+      "artifact": "data\\outputs\\togo\\map_20260429_060811.osm_context_water.geojson"
+    },
+    {
+      "id": "osm_settlements",
+      "label": "Lieux habites",
+      "type": "point",
+      "symbol": "settlement",
+      "color": "#1f2937",
+      "meaning": "Contexte terrain: villes, villages, hameaux.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\togo\\map_20260429_060811.osm_context_settlements.geojson",
+      "artifact": "data\\outputs\\togo\\map_20260429_060811.osm_context_settlements.geojson"
+    },
+    {
+      "id": "osm_roads",
+      "label": "Routes principales",
+      "type": "line",
+      "symbol": "road",
+      "color": "#6b7280",
+      "meaning": "Contexte terrain: axes de circulation utiles pour l'acces.",
+      "zoom": {
+        "min": 6,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\togo\\map_20260429_060811.osm_context_roads.geojson",
+      "artifact": "data\\outputs\\togo\\map_20260429_060811.osm_context_roads.geojson"
+    },
+    {
+      "id": "osm_health",
+      "label": "Sante",
+      "type": "point",
+      "symbol": "hospital",
+      "color": "#ef4444",
+      "meaning": "Contexte terrain: hopitaux et structures de sante.",
+      "zoom": {
+        "min": 8,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\togo\\map_20260429_060811.osm_context_health.geojson",
+      "artifact": "data\\outputs\\togo\\map_20260429_060811.osm_context_health.geojson"
+    }
+  ],
+  "maplibre": {
+    "views": [
+      {
+        "id": "priority",
+        "field": "priority_score",
+        "label": "Priorite"
+      },
+      {
+        "id": "people_p3plus",
+        "field": "ipc_people_p3plus",
+        "label": "Personnes P3+"
+      },
+      {
+        "id": "share_p3plus",
+        "field": "ipc_share_p3plus",
+        "label": "Part P3+"
+      },
+      {
+        "id": "missing_data",
+        "field": "priority_label",
+        "label": "Donnees manquantes"
+      },
+      {
+        "id": "osm_context",
+        "field": "osm_context_note",
+        "label": "Contexte OSM"
+      }
+    ],
+    "admin_layer": "admin_priority",
+    "default_view": "priority",
+    "default_layers": [
+      "admin_priority",
+      "osm_water",
+      "osm_settlements",
+      "osm_roads"
+    ],
+    "legend_key": "legend"
+  },
+  "layers": [
+    {
+      "id": "admin_priority",
+      "type": "choropleth",
+      "field": "priority_score",
+      "path": "data\\outputs\\togo\\map_20260429_060811.geojson",
+      "label": "Carte prioritaire",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "status",
+      "type": "categorical",
+      "field": "status",
+      "path": "data\\outputs\\togo\\map_20260429_060811.geojson",
+      "label": "Statut humanitaire",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_settlements",
+      "type": "settlements",
+      "path": "data\\outputs\\togo\\map_20260429_060811.osm_context_settlements.geojson",
+      "label": "Lieux habites",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_water",
+      "type": "water_points",
+      "path": "data\\outputs\\togo\\map_20260429_060811.osm_context_water.geojson",
+      "label": "Points d'eau",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_health",
+      "type": "health",
+      "path": "data\\outputs\\togo\\map_20260429_060811.osm_context_health.geojson",
+      "label": "Sante",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 8,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_roads",
+      "type": "roads",
+      "path": "data\\outputs\\togo\\map_20260429_060811.osm_context_roads.geojson",
+      "label": "Routes principales",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 6,
+        "max": null
+      }
+    }
+  ]
+}

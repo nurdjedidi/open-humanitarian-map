@@ -2,7 +2,7 @@ import { ExternalLink, Info, Mail, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
-import type { MapDataset } from "~/data/datasets";
+import type { MapDataset } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import { LanguageSwitch } from "../language-switch";
 

@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Building2,
   Layers3,
@@ -8,13 +9,14 @@ import {
   Plane,
 } from "lucide-react";
 
-import type { ResolvedLegendItem } from "~/data/datasets";
+import type { IpcCountrySummary, ResolvedLegendItem } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
+import { formatCompactNumber, formatPercent } from "~/utils";
 import type { BasemapId, ViewMode } from "../map-view";
 import { LegendItem } from "./legend";
 import { MobileSheet, PanelSection, ToggleRow, cx } from "./ui";
 
-export type FloatingPanelId = "layers" | "basemap" | "legend" | null;
+export type FloatingPanelId = "layers" | "basemap" | "legend" | "ipc" | null;
 
 export function FloatingControlButtons({
   activePanel,
@@ -28,6 +30,7 @@ export function FloatingControlButtons({
     { id: "layers" as const, label: t("demo.layers"), icon: PanelLeftOpen },
     { id: "basemap" as const, label: t("demo.basemap"), icon: Map },
     { id: "legend" as const, label: t("demo.legend"), icon: BookOpen },
+    { id: "ipc" as const, label: "IPC", icon: BarChart3 },
   ];
 
   return (
@@ -184,6 +187,7 @@ function PanelContent({
   activeYear,
   setActiveYear,
   timelineFallbacks,
+  ipcSummary,
 }: {
   activePanel: Exclude<FloatingPanelId, null>;
   setActivePanel: (value: FloatingPanelId) => void;
@@ -206,6 +210,7 @@ function PanelContent({
   activeYear: number | null;
   setActiveYear: (value: number | null) => void;
   timelineFallbacks: Array<{ countryName: string; latestYear: number }>;
+  ipcSummary: IpcCountrySummary[];
 }) {
   const { t } = useI18n();
 
@@ -217,7 +222,9 @@ function PanelContent({
             ? t("demo.layers")
             : activePanel === "basemap"
               ? t("demo.basemap")
-              : t("demo.legend")}
+              : activePanel === "legend"
+                ? t("demo.legend")
+                : "IPC"}
         </div>
         <button
           type="button"
@@ -364,6 +371,87 @@ function PanelContent({
           </div>
         </PanelSection>
       ) : null}
+
+      {activePanel === "ipc" ? (
+        <PanelSection title="Population par phase IPC">
+          <div className="mb-3 rounded-2xl border border-[#d98a35]/20 bg-[#d98a35]/10 px-3 py-2.5 text-xs leading-5 text-[#f0d6a5]">
+            Agrégation par pays sur l'année active. P3+ = IPC 3 + IPC 4 + IPC 5.
+          </div>
+          <div className="space-y-3">
+            {ipcSummary.map((country) => {
+              const total = Math.max(country.population, 1);
+              const phases = [
+                { label: "1", value: country.phase1, color: "bg-[#dcefa1]", text: "text-[#dcefa1]" },
+                { label: "2", value: country.phase2, color: "bg-[#ffd45d]", text: "text-[#ffd45d]" },
+                { label: "3", value: country.phase3, color: "bg-[#f59a2f]", text: "text-[#f59a2f]" },
+                { label: "4", value: country.phase4, color: "bg-[#dd4b2f]", text: "text-[#ff9c88]" },
+                { label: "5", value: country.phase5, color: "bg-[#5d1115]", text: "text-[#ff7b8a]" },
+              ];
+
+              return (
+                <article
+                  key={country.countryKey}
+                  className="rounded-[22px] border border-white/8 bg-[#162231]/88 p-3 shadow-[0_14px_38px_rgba(0,0,0,0.18)]"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-semibold text-[#f5f0e8]">{country.countryName}</h3>
+                      <p className="mt-0.5 text-xs text-[#91a8ba]">
+                        Donnée utilisée: {country.latestYear ?? "n/a"}
+                      </p>
+                    </div>
+                    <div className="shrink-0 rounded-2xl border border-[#d98a35]/35 bg-[#d98a35]/14 px-3 py-2 text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffd38b]">P3+</div>
+                      <div className="text-sm font-black text-[#ffe2aa]">{formatPercent(country.phase3plusShare)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mb-3 flex h-4 overflow-hidden rounded-full bg-black/20 ring-1 ring-white/8">
+                    {phases.map((phase) => (
+                      <div
+                        key={phase.label}
+                        className={phase.color}
+                        style={{ width: `${Math.max(0, (phase.value / total) * 100)}%` }}
+                        title={`IPC ${phase.label}: ${formatCompactNumber(phase.value)}`}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                      <div className="text-[#8fa8bb]">Population</div>
+                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.population)}</div>
+                    </div>
+                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                      <div className="text-[#8fa8bb]">P3+</div>
+                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase3plus)}</div>
+                    </div>
+                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                      <div className="text-[#8fa8bb]">P4+</div>
+                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase4plus)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 overflow-hidden rounded-2xl border border-white/8">
+                    {phases.map((phase) => (
+                      <div
+                        key={phase.label}
+                        className="grid grid-cols-[62px_1fr] items-center border-b border-white/6 bg-white/[0.025] px-3 py-2 text-xs last:border-b-0"
+                      >
+                        <div className={`font-bold ${phase.text}`}>IPC {phase.label}</div>
+                        <div className="text-right font-semibold text-[#edf5fb]">
+                          {formatCompactNumber(phase.value)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </PanelSection>
+      ) : null}
+
     </>
   );
 }
@@ -390,6 +478,7 @@ export function FloatingSidePanel({
   activeYear,
   setActiveYear,
   timelineFallbacks,
+  ipcSummary,
 }: {
   activePanel: FloatingPanelId;
   setActivePanel: (value: FloatingPanelId) => void;
@@ -412,6 +501,7 @@ export function FloatingSidePanel({
   activeYear: number | null;
   setActiveYear: (value: number | null) => void;
   timelineFallbacks: Array<{ countryName: string; latestYear: number }>;
+  ipcSummary: IpcCountrySummary[];
 }) {
   if (!activePanel) return null;
 
@@ -437,11 +527,17 @@ export function FloatingSidePanel({
     activeYear,
     setActiveYear,
     timelineFallbacks,
+    ipcSummary,
   };
 
   return (
     <>
-      <aside className="absolute bottom-4 left-[76px] top-[96px] z-30 hidden w-[290px] max-w-[calc(100vw-92px)] md:block">
+      <aside
+        className={cx(
+          "absolute bottom-4 left-[76px] top-[96px] z-30 hidden max-w-[calc(100vw-92px)] md:block",
+          activePanel === "ipc" ? "w-[390px]" : "w-[290px]",
+        )}
+      >
         <div className="panel-scroll h-full overflow-y-auto rounded-[24px] border border-white/10 bg-[#0a1420]/94 p-3 shadow-[0_18px_60px_rgba(2,6,12,0.34)] backdrop-blur-xl">
           <PanelContent {...contentProps} />
         </div>

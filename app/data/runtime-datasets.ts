@@ -6,66 +6,20 @@ import type {
 } from "geojson";
 
 import type {
+  ManifestLayer,
+  ManifestLegendItem,
+  ManifestLike,
+  ManifestSummary,
   MapDataset,
+  IpcCountrySummary,
   RegionDetail,
   RegionRecord,
   RegionTimelineEntry,
   ResolvedLegendItem,
   SupportedLayerId,
-} from "./datasets";
+} from "./dataset-types";
 
 type JsonModule = Record<string, unknown>;
-
-type ManifestLayer = {
-  id?: string;
-  type?: string;
-  path?: string;
-  label?: string;
-  visible_by_default?: boolean;
-  zoom?: { min?: number | null; max?: number | null } | null;
-};
-
-type ManifestLegendItem = {
-  id?: string;
-  label?: string;
-  type?: string;
-  symbol?: string;
-  color?: string;
-  color_scale?: string[];
-  meaning?: string;
-  visible_by_default?: boolean;
-  zoom?: { min?: number | null; max?: number | null } | null;
-  artifact?: string;
-  source?: string;
-};
-
-type ManifestSummary = {
-  feature_count?: number;
-  score_100_mean?: number;
-  people_p3plus_total?: number;
-  osm_counts?: Record<string, number>;
-  pipeline_log?: string[];
-  top_regions?: Array<Record<string, unknown>>;
-  data_quality?: Record<string, unknown>;
-  [key: string]: unknown;
-};
-
-type ManifestLike = {
-  geojson?: string;
-  artifacts?: Record<string, { geojson?: string; label?: string; kind?: string }>;
-  legend?: ManifestLegendItem[];
-  layers?: ManifestLayer[];
-  summary?: ManifestSummary;
-  maplibre?: {
-    default_view?: string;
-    default_layers?: string[];
-  };
-  run?: {
-    zone?: string;
-    output_name?: string;
-    created_at?: string;
-  };
-};
 
 type DatasetIndexEntry = {
   slug: string;
@@ -88,6 +42,9 @@ type FileRequest = {
 
 const DATA_BASE_URL = (import.meta.env.VITE_OHM_DATA_BASE_URL ?? "/data").replace(/\/$/, "");
 const DATA_INDEX_URL = `${DATA_BASE_URL}/index.json`;
+const DATA_CACHE_BUSTER = String(Date.now());
+let catalogCache: RuntimeCountryCatalog[] | null = null;
+const combinedLayerCache = new Map<SupportedLayerId, FeatureCollection>();
 
 function basename(input: string): string {
   return input.replace(/\\/g, "/").split("/").pop() ?? input;
@@ -153,6 +110,11 @@ function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }
 
+function withRuntimeCacheBuster(url: string): string {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}ohm_v=${DATA_CACHE_BUSTER}`;
+}
+
 function fallbackLegend(): ResolvedLegendItem[] {
   return [
     {
@@ -162,7 +124,7 @@ function fallbackLegend(): ResolvedLegendItem[] {
       symbol: "fill",
       meaning: "Gravité IPC + personnes affectées + part de population en P3+.",
       visibleByDefault: true,
-      colorScale: ["#d4d4d4", "#fff1aa", "#f5b437", "#dc4b23", "#23080c"],
+      colorScale: ["#d4d4d4", "#fff7bc", "#ffd25c", "#f59123", "#de4827", "#3a080e"],
     },
     {
       id: "osm_roads",
@@ -195,9 +157,10 @@ function fallbackLegend(): ResolvedLegendItem[] {
 }
 
 async function fetchJson<T = JsonModule>(url: string): Promise<T> {
-  const response = await fetch(url);
+  const requestUrl = withRuntimeCacheBuster(url);
+  const response = await fetch(requestUrl, { cache: "no-store" });
   if (!response.ok) {
-    throw new Error(`Impossible de charger ${url}`);
+    throw new Error(`Impossible de charger ${url} (${response.status})`);
   }
   const text = await response.text();
   const sanitized = text
@@ -212,57 +175,78 @@ async function fetchDatasetIndex(): Promise<DatasetIndexEntry[]> {
   return Array.isArray(payload.countries) ? payload.countries : [];
 }
 
-async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCountryCatalog> {
-  const manifestUrl = `${DATA_BASE_URL}/${entry.slug}/${basename(entry.manifest)}`;
-  const manifest = await fetchJson<ManifestLike>(manifestUrl);
+function fileRequestForLayer(
+  manifest: ManifestLike,
+  layerId: SupportedLayerId,
+): FileRequest | null {
+  const references: string[] = [];
 
-  const fileRequests: FileRequest[] = [];
-  const addFileRequest = (
-    layerId: SupportedLayerId,
-    reference: string | undefined,
-    extraCandidates: string[] = [],
-  ) => {
-    if (!reference) return;
-    const originalName = basename(reference);
-    fileRequests.push({
-      aliases: uniqueStrings([originalName, currentFileName(layerId), ...extraCandidates]),
-      candidates: uniqueStrings([currentFileName(layerId), ...extraCandidates, originalName]),
-    });
-  };
-
-  if (manifest.geojson) {
-    addFileRequest("admin_priority", manifest.geojson, ["current.geojson"]);
+  if (layerId === "admin_priority" && manifest.geojson) {
+    references.push(manifest.geojson);
   }
+
   for (const [artifactId, artifact] of Object.entries(manifest.artifacts ?? {})) {
     const name = basename(artifact.geojson ?? "");
     if (artifactId === "world" || name === "world.geojson") continue;
-    const layerId = canonicalLayerId(artifactId);
-    if (!layerId) continue;
-    addFileRequest(layerId, artifact.geojson, layerId === "admin_priority" ? ["current.geojson"] : []);
-  }
-  for (const layer of manifest.layers ?? []) {
-    if (basename(layer.path ?? "") === "world.geojson") continue;
-    const layerId = canonicalLayerId(layer.id);
-    if (!layerId) continue;
-    addFileRequest(layerId, layer.path, layerId === "admin_priority" ? ["current.geojson"] : []);
+    if (canonicalLayerId(artifactId) === layerId && artifact.geojson) {
+      references.push(artifact.geojson);
+    }
   }
 
+  for (const layer of manifest.layers ?? []) {
+    if (basename(layer.path ?? "") === "world.geojson") continue;
+    if (canonicalLayerId(layer.id) === layerId && layer.path) {
+      references.push(layer.path);
+    }
+  }
+
+  const extraCandidates = layerId === "admin_priority" ? ["current.geojson"] : [];
+  const candidates = uniqueStrings([
+    currentFileName(layerId),
+    ...extraCandidates,
+    ...references.map(basename),
+  ]);
+  if (!candidates.length) return null;
+
+  return {
+    aliases: uniqueStrings([
+      currentFileName(layerId),
+      ...extraCandidates,
+      ...references.map(basename),
+    ]),
+    candidates,
+  };
+}
+
+async function fetchCountryLayerFile(
+  slug: string,
+  request: FileRequest | null,
+): Promise<Map<string, JsonModule>> {
   const files = new Map<string, JsonModule>();
-  await Promise.all(
-    fileRequests.map(async (request) => {
-      for (const candidate of request.candidates) {
-        try {
-          const payload = await fetchJson(`${DATA_BASE_URL}/${entry.slug}/${candidate}`);
-          for (const alias of request.aliases) {
-            files.set(alias, payload);
-          }
-          files.set(candidate, payload);
-          return;
-        } catch {
-          // Try the next compatible filename.
-        }
+  if (!request) return files;
+
+  for (const candidate of request.candidates) {
+    try {
+      const payload = await fetchJson(`${DATA_BASE_URL}/${slug}/${candidate}`);
+      for (const alias of request.aliases) {
+        files.set(alias, payload);
       }
-    }),
+      files.set(candidate, payload);
+      return files;
+    } catch {
+      // Try the next compatible filename.
+    }
+  }
+
+  return files;
+}
+
+async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCountryCatalog> {
+  const manifestUrl = `${DATA_BASE_URL}/${entry.slug}/${basename(entry.manifest)}`;
+  const manifest = await fetchJson<ManifestLike>(manifestUrl);
+  const files = await fetchCountryLayerFile(
+    entry.slug,
+    fileRequestForLayer(manifest, "admin_priority"),
   );
 
   return {
@@ -418,6 +402,11 @@ function timelineEntriesFromFeature(feature: Feature<Geometry, GeoJsonProperties
   return parseHistoryPayload(props[historyKey])
     .map((entry) => {
       const year = asNumber(entry.reference_year ?? entry.exercise_year);
+      const phase1 = asNumber(entry.phase1);
+      const phase2 = asNumber(entry.phase2);
+      const phase3 = asNumber(entry.phase3);
+      const phase4 = asNumber(entry.phase4);
+      const phase5 = asNumber(entry.phase5);
       const p3plus = asNumber(entry.phase35 ?? entry.phase3) ?? 0;
       const population = asNumber(entry.population);
       return {
@@ -425,6 +414,11 @@ function timelineEntriesFromFeature(feature: Feature<Geometry, GeoJsonProperties
         label: asString(entry.reference_label || entry.exercise_label, year ? String(year) : "n/a"),
         type: asString(entry.chtype, "n/a"),
         phase: asNumber(entry.phase_class),
+        phase1,
+        phase2,
+        phase3,
+        phase4,
+        phase5,
         p3plus,
         population,
         shareP3Plus:
@@ -557,9 +551,9 @@ function combineLegend(datasets: MapDataset[]): ResolvedLegendItem[] {
 function combineLayerDefaults(datasets: MapDataset[]): Record<SupportedLayerId, boolean> {
   return {
     admin_priority: true,
-    osm_water: datasets.some((dataset) => dataset.layerDefaults.osm_water),
-    osm_settlements: datasets.some((dataset) => dataset.layerDefaults.osm_settlements),
-    osm_roads: datasets.some((dataset) => dataset.layerDefaults.osm_roads),
+    osm_water: false,
+    osm_settlements: false,
+    osm_roads: false,
   };
 }
 
@@ -587,22 +581,130 @@ function combineTopRegions(datasets: MapDataset[]): RegionRecord[] {
     .slice(0, 12);
 }
 
+async function resolveCountryLayer(
+  country: RuntimeCountryCatalog,
+  layerId: SupportedLayerId,
+): Promise<FeatureCollection | null> {
+  const request = fileRequestForLayer(country.manifest, layerId);
+  for (const alias of request?.aliases ?? []) {
+    const existing = country.files.get(alias);
+    if (existing && isFeatureCollection(existing)) return existing;
+  }
+
+  const fetched = await fetchCountryLayerFile(country.slug, request);
+  for (const [alias, payload] of fetched) {
+    country.files.set(alias, payload);
+  }
+
+  for (const alias of request?.aliases ?? []) {
+    const existing = country.files.get(alias);
+    if (existing && isFeatureCollection(existing)) return existing;
+  }
+
+  return null;
+}
+
+function combineLayerFromCatalogs(
+  catalogs: RuntimeCountryCatalog[],
+  layerId: SupportedLayerId,
+  collections: Array<FeatureCollection | null>,
+): FeatureCollection {
+  const features = catalogs.flatMap((country, countryIndex) =>
+    (collections[countryIndex]?.features ?? []).map((feature, index) => {
+      const properties = { ...(feature.properties ?? {}) };
+      const baseId =
+        asString(properties.feature_id) ||
+        asString(properties.osm_id) ||
+        asString(properties.id) ||
+        `${country.slug}-${layerId}-${index}`;
+      properties.feature_id = `${country.slug}:${baseId}`;
+      properties.country_slug = country.slug;
+      properties.country_name = asString(country.manifest.run?.zone, country.title ?? country.slug);
+      return {
+        ...feature,
+        properties,
+      };
+    }),
+  );
+  return { type: "FeatureCollection", features };
+}
+
+export async function loadCombinedLayer(
+  layerId: Exclude<SupportedLayerId, "admin_priority">,
+): Promise<FeatureCollection> {
+  const cached = combinedLayerCache.get(layerId);
+  if (cached) return cached;
+
+  if (!catalogCache?.length) {
+    throw new Error("Le catalogue OHM n'est pas encore chargé.");
+  }
+
+  const collections = await Promise.all(
+    catalogCache.map((country) => resolveCountryLayer(country, layerId)),
+  );
+  const combined = combineLayerFromCatalogs(catalogCache, layerId, collections);
+  combinedLayerCache.set(layerId, combined);
+  console.info("[OHM] Couche chargée à la demande", {
+    layerId,
+    features: combined.features.length,
+  });
+  return combined;
+}
+
 export async function loadCombinedDataset(): Promise<MapDataset> {
   const entries = await fetchDatasetIndex();
   if (!entries.length) {
     throw new Error("Aucun dataset pays trouvé dans public/data.");
   }
-  const datasets = await Promise.all(entries.map((entry) => buildCountryCatalog(entry).then(buildDataset)));
+  console.info(
+    "[OHM] Dataset index",
+    entries.map((entry) => entry.slug),
+  );
+  const results = await Promise.allSettled(
+    entries.map((entry) => buildCountryCatalog(entry)),
+  );
+  const catalogs = results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      console.info("[OHM] Dataset chargé", {
+        slug: result.value.slug,
+        title: result.value.title,
+      });
+      return [result.value];
+    }
+    console.warn(
+      `[OHM] Dataset ignoré: ${entries[index]?.slug ?? "unknown"}`,
+      result.reason,
+    );
+    return [];
+  });
+  catalogCache = catalogs;
+  combinedLayerCache.clear();
+  const datasets = catalogs.map((catalog) => {
+    const dataset = buildDataset(catalog);
+    console.info("[OHM] Dataset admin chargé", {
+      slug: dataset.slug,
+      title: dataset.title,
+      adminFeatures: dataset.admin.features.length,
+    });
+    return dataset;
+  });
+
+  if (!datasets.length) {
+    throw new Error(
+      `Aucun dataset pays chargeable depuis ${DATA_INDEX_URL}. Vérifie les slugs et fichiers current.* dans le stockage.`,
+    );
+  }
 
   const admin = combineFeatureCollections(datasets, (dataset) => dataset.admin);
   admin.features = admin.features
     .slice()
     .sort((left, right) => featureDisplayArea(right) - featureDisplayArea(left));
+  console.info("[OHM] Dataset combiné", {
+    countries: datasets.map((dataset) => dataset.slug),
+    adminFeatures: admin.features.length,
+  });
   const layers: Partial<Record<SupportedLayerId, FeatureCollection>> = {
     admin_priority: admin,
-    osm_water: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_water),
-    osm_settlements: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_settlements),
-    osm_roads: combineFeatureCollections(datasets, (dataset) => dataset.layers.osm_roads),
   };
 
   return {
@@ -650,6 +752,73 @@ export function getTimelineFallbackSummary(
   return Array.from(byCountry.values()).sort((left, right) =>
     left.countryName.localeCompare(right.countryName),
   );
+}
+
+export function getIpcCountrySummary(
+  dataset: MapDataset,
+  year: number | null,
+): IpcCountrySummary[] {
+  const countries = new Map<string, IpcCountrySummary>();
+
+  for (const feature of dataset.admin.features) {
+    const props = feature.properties ?? {};
+    const entries = timelineEntriesFromFeature(feature);
+    const fallbackYear = Math.max(
+      -Infinity,
+      ...entries
+        .map((item) => item.year)
+        .filter((itemYear): itemYear is number => typeof itemYear === "number" && Number.isFinite(itemYear)),
+    );
+    const targetYear = year ?? (Number.isFinite(fallbackYear) ? fallbackYear : null);
+    if (targetYear === null) continue;
+    const entry = pickTimelineEntryForYear(entries, targetYear);
+    if (!entry) continue;
+
+    const countryName = asString(props.country_name || props.adm0_name, "Zone");
+    const countryKey = asString(props.country_slug || props.adm0_name || countryName, countryName);
+    const current =
+      countries.get(countryKey) ??
+      {
+        countryKey,
+        countryName,
+        year,
+        latestYear: null,
+        population: 0,
+        phase1: 0,
+        phase2: 0,
+        phase3: 0,
+        phase4: 0,
+        phase5: 0,
+        phase3plus: 0,
+        phase4plus: 0,
+        phase3plusShare: null,
+        phase4plusShare: null,
+      };
+
+    current.latestYear =
+      entry.year !== null && Number.isFinite(entry.year)
+        ? Math.max(current.latestYear ?? -Infinity, entry.year)
+        : current.latestYear;
+    current.population += entry.population ?? 0;
+    current.phase1 += entry.phase1 ?? 0;
+    current.phase2 += entry.phase2 ?? 0;
+    current.phase3 += entry.phase3 ?? 0;
+    current.phase4 += entry.phase4 ?? 0;
+    current.phase5 += entry.phase5 ?? 0;
+    current.phase3plus += entry.p3plus ?? (entry.phase3 ?? 0) + (entry.phase4 ?? 0) + (entry.phase5 ?? 0);
+    current.phase4plus += (entry.phase4 ?? 0) + (entry.phase5 ?? 0);
+
+    countries.set(countryKey, current);
+  }
+
+  return Array.from(countries.values())
+    .map((item) => ({
+      ...item,
+      latestYear: item.latestYear !== null && Number.isFinite(item.latestYear) ? item.latestYear : null,
+      phase3plusShare: item.population > 0 ? item.phase3plus / item.population : null,
+      phase4plusShare: item.population > 0 ? item.phase4plus / item.population : null,
+    }))
+    .sort((left, right) => right.phase3plus - left.phase3plus);
 }
 
 export function getRegionDetail(

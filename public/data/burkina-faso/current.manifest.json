@@ -1,0 +1,532 @@
+{
+  "geojson": "current.geojson",
+  "world_geojson": null,
+  "artifacts": {
+    "admin_priority": {
+      "geojson": "current.admin_priority.geojson",
+      "label": "Carte prioritaire",
+      "kind": "primary"
+    },
+    "osm_roads": {
+      "geojson": "current.osm_roads.geojson",
+      "label": "Routes principales",
+      "kind": "roads"
+    },
+    "osm_water": {
+      "geojson": "current.osm_water.geojson",
+      "label": "Points d'eau",
+      "kind": "water_points"
+    },
+    "osm_settlements": {
+      "geojson": "current.osm_settlements.geojson",
+      "label": "Lieux habites",
+      "kind": "settlements"
+    }
+  },
+  "run": {
+    "zone": "Burkina Faso",
+    "output_name": "map",
+    "created_at": "2026-04-28T22:06:52",
+    "uploaded_files": [
+      "ipc-sen.xlsx",
+      "bfa_pop_2026.tif",
+      "bfa_admin0.geojson",
+      "bfa_admin1.geojson",
+      "bfa_admin2.geojson",
+      "bfa_admin3.geojson"
+    ]
+  },
+  "profile": {
+    "source_path": "C:\\Users\\djedi\\AppData\\Local\\Temp\\ohm_upload_5o0bild4\\bfa_admin2.geojson",
+    "source_type": "geojson",
+    "feature_count": 47,
+    "has_geometry": true,
+    "columns": [
+      "adm2_name",
+      "adm2_name1",
+      "adm2_name2",
+      "adm2_name3",
+      "adm2_pcode",
+      "adm1_name",
+      "adm1_name1",
+      "adm1_name2",
+      "adm1_name3",
+      "adm1_pcode",
+      "adm0_name",
+      "adm0_name1",
+      "adm0_name2",
+      "adm0_name3",
+      "adm0_pcode",
+      "valid_on",
+      "valid_to",
+      "area_sqkm",
+      "version",
+      "lang",
+      "lang1",
+      "lang2",
+      "lang3",
+      "adm2_ref_name",
+      "center_lat",
+      "center_lon",
+      "adm2_pcode_old",
+      "adm2_name_old",
+      "ipc_sen_adm0_5_pcod2",
+      "ipc_sen_exercise_code",
+      "ipc_sen_exercise_year",
+      "ipc_sen_reference_code",
+      "ipc_sen_reference_year",
+      "ipc_sen_population",
+      "ipc_sen_phase_class",
+      "ipc_sen_phase1",
+      "ipc_sen_phase2",
+      "ipc_sen_phase3",
+      "ipc_sen_phase4",
+      "ipc_sen_phase5",
+      "ipc_sen_phase35",
+      "ipc_sen_foodconsumption_phase",
+      "ipc_sen_livelihoods_phase",
+      "ipc_sen_nutrition_phase",
+      "ipc_sen_mortality_phase",
+      "ipc_sen_fcg_poor",
+      "ipc_sen_fcg_borderline",
+      "ipc_sen_fcg_acceptable",
+      "ipc_sen_fcg_finalphase",
+      "ipc_sen_hdds_phase1",
+      "ipc_sen_hdds_phase2",
+      "ipc_sen_hdds_phase3",
+      "ipc_sen_hdds_phase4",
+      "ipc_sen_hdds_phase5",
+      "ipc_sen_hdds_finalphase",
+      "ipc_sen_hhs_phase1",
+      "ipc_sen_hhs_phase2",
+      "ipc_sen_hhs_phase3",
+      "ipc_sen_hhs_phase4",
+      "ipc_sen_hhs_phase5",
+      "ipc_sen_hhs_finalphase",
+      "ipc_sen_lhhcscat_nostrategies",
+      "ipc_sen_lhhcscat_stressstrategies",
+      "ipc_sen_lhhcscat_crisisstategies",
+      "ipc_sen_lhhcscat_emergencystrategies",
+      "ipc_sen_lhhcscat_finalphase",
+      "ipc_sen_rcsi_phase1",
+      "ipc_sen_rcsi_phase2",
+      "ipc_sen_rcsi_phase3",
+      "ipc_sen_rcsi_finalphase",
+      "ipc_sen_reference_label",
+      "ipc_sen_exercise_label",
+      "ipc_sen_chtype",
+      "ipc_sen_usethisperiod",
+      "ipc_sen_history",
+      "ipc_sen_history_count",
+      "ipc_sen_source_level",
+      "ipc_sen_inherited",
+      "bfa_admin0_area_sqkm",
+      "bfa_admin0_count",
+      "bfa_admin1_area_sqkm",
+      "bfa_admin1_count",
+      "bfa_admin3_area_sqkm",
+      "bfa_admin3_count",
+      "bfa_pop_2026_mean",
+      "bfa_pop_2026_sum",
+      "geometry"
+    ],
+    "detected_fields": [
+      {
+        "logical_name": "geometry",
+        "source_name": "geometry",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "latitude",
+        "source_name": "center_lat",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "longitude",
+        "source_name": "center_lon",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "admin_name",
+        "source_name": "adm0_name",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population_total",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "ipc_phase",
+        "source_name": "ipc_sen_phase_class",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase1",
+        "source_name": "ipc_sen_phase1",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase2",
+        "source_name": "ipc_sen_phase2",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase3",
+        "source_name": "ipc_sen_phase3",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase4",
+        "source_name": "ipc_sen_phase4",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase5",
+        "source_name": "ipc_sen_phase5",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase35",
+        "source_name": "ipc_sen_phase35",
+        "confidence": 0.8
+      }
+    ],
+    "crs": "EPSG:4326"
+  },
+  "summary": {
+    "feature_count": 47,
+    "status_counts": {
+      "A surveiller": 21,
+      "Faible": 9,
+      "Donnees manquantes": 9,
+      "Prioritaire": 6,
+      "Critique": 2
+    },
+    "score_min": 0.0,
+    "score_max": 0.7666862161207971,
+    "score_mean": 0.3075716031466331,
+    "score_100_mean": 30.757446808510633,
+    "people_p3plus_total": 1300690.0,
+    "osm_counts": {
+      "settlements": 5000,
+      "water_points": 5000,
+      "health": 948,
+      "roads": 5000
+    },
+    "osm_source": "local_pbf",
+    "top_regions": [
+      {
+        "name": "Loroum",
+        "priority_rank": 1,
+        "priority_score": 0.7666862161207971,
+        "score_100": 76.7,
+        "priority_label": "Critique",
+        "decision_reason": "99k personnes P3+, 45.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 98670.0,
+        "ipc_people_p4plus": 32890.0,
+        "ipc_share_p3plus": 0.4499993159025298,
+        "ipc_population_total": 219267.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Oudalan",
+        "priority_rank": 2,
+        "priority_score": 0.7561599288451681,
+        "score_100": 75.6,
+        "priority_label": "Critique",
+        "decision_reason": "68k personnes P3+, 40.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 67771.0,
+        "ipc_people_p4plus": 25414.0,
+        "ipc_share_p3plus": 0.39999645869361206,
+        "ipc_population_total": 169429.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Namentenga",
+        "priority_rank": 3,
+        "priority_score": 0.7138358171022718,
+        "score_100": 71.4,
+        "priority_label": "Prioritaire",
+        "decision_reason": "138k personnes P3+, 24.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 137858.0,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.24000013927382627,
+        "ipc_population_total": 574408.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Bam",
+        "priority_rank": 4,
+        "priority_score": 0.6961457756448455,
+        "score_100": 69.6,
+        "priority_label": "Prioritaire",
+        "decision_reason": "118k personnes P3+, 22.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 118008.0,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.22,
+        "ipc_population_total": 536400.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Yagha",
+        "priority_rank": 5,
+        "priority_score": 0.6745513343381717,
+        "score_100": 67.5,
+        "priority_label": "Prioritaire",
+        "decision_reason": "43k personnes P3+, 23.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 43042.0,
+        "ipc_people_p4plus": 0.0,
+        "ipc_share_p3plus": 0.23000138934903655,
+        "ipc_population_total": 187138.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      }
+    ],
+    "data_quality": {
+      "missing_counts": {
+        "priority_score": 0,
+        "score_100": 0,
+        "ipc_phase_dominant": 9,
+        "ipc_people_p3plus": 0,
+        "ipc_people_p4plus": 0,
+        "ipc_share_p3plus": 9,
+        "ipc_population_total": 9
+      },
+      "rows_without_priority_score": 0,
+      "rows_with_missing_decision_reason": 0,
+      "osm_layers_available": [
+        "settlements",
+        "water_points",
+        "health",
+        "roads"
+      ]
+    },
+    "pipeline_log": [
+      "OSM local detecte: burkina-faso-260427.osm.pbf",
+      "Base admin choisie automatiquement: bfa_admin2",
+      "ipc-sen: filtre pays applique via adm0_name (1973/40338 lignes conservees pour {'burkina faso'}).",
+      "ipc-sen: fusion tabulaire par region via adm2_name -> adm2_name (overlap=38, jointure directe).",
+      "bfa_admin0: agregation spatiale terminee.",
+      "bfa_admin1: agregation spatiale terminee.",
+      "bfa_admin3: agregation spatiale terminee.",
+      "bfa_pop_2026.tif: progression raster 10/47",
+      "bfa_pop_2026.tif: progression raster 20/47",
+      "bfa_pop_2026.tif: progression raster 30/47",
+      "bfa_pop_2026.tif: progression raster 40/47",
+      "bfa_pop_2026.tif: progression raster 47/47",
+      "bfa_pop_2026.tif: agregation raster par region terminee.",
+      "OSM local: lecture burkina-faso-260427.osm.pbf.",
+      "OSM local: extraction sur toute la zone du fichier .pbf.",
+      "OSM local: 5000 lieux, 5000 eau, 948 sante, 5000 routes."
+    ],
+    "groq": {
+      "raw": "```json\n{\n  \"headline\": \"Humanitarian Map Summary\",\n  \"top_hotspots\": [\n    {\"name\": \"Loroum\", \"priority_rank\": 1, \"priority_score\": 0.7666862161207971, \"ipc_people_p3plus\": 98670.0},\n    {\"name\": \"Oudalan\", \"priority_rank\": 2, \"priority_score\": 0.7561599288451681, \"ipc_people_p3plus\": 67771.0},\n    {\"name\": \"Namentenga\", \"priority_rank\": 3, \"priority_score\": 0.7138358171022718, \"ipc_people_p3plus\": 137858.0},\n    {\"name\": \"Bam\", \"priority_rank\": 4, \"priority_score\": 0.6961457756448455, \"ipc_people_p3plus\": 118008.0},\n    {\"name\": \"Yagha\", \"priority_rank\": 5, \"priority_score\": 0.6745513343381717, \"ipc_people_p3plus\": 43042.0}\n  ],\n  \"data_gaps\": {\n    \"missing_counts\": {\n      \"ipc_phase_dominant\": 9,\n      \"ipc_share_p3plus\": 9,\n      \"ipc_population_total\": 9\n    }\n  },\n  \"recommended_next_step\": \"Address data gaps and prioritize regions with high IPC scores and large affected populations\"\n}\n```"
+    }
+  },
+  "legend": [
+    {
+      "id": "admin_priority",
+      "label": "Priorite administrative",
+      "type": "choropleth",
+      "symbol": "fill",
+      "color_scale": [
+        "#fff1aa",
+        "#f5b437",
+        "#dc4b23",
+        "#91141a",
+        "#23080c"
+      ],
+      "meaning": "Couche principale: gravite IPC + population affectee.",
+      "zoom": {
+        "min": 0,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\burkina-faso\\map_20260428_220652.geojson",
+      "artifact": "data\\outputs\\burkina-faso\\map_20260428_220652.admin_priority.geojson"
+    },
+    {
+      "id": "osm_water",
+      "label": "Points d'eau",
+      "type": "point",
+      "symbol": "droplet",
+      "color": "#3b82f6",
+      "meaning": "Contexte terrain: points d'eau localises.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_water.geojson",
+      "artifact": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_water.geojson"
+    },
+    {
+      "id": "osm_settlements",
+      "label": "Lieux habites",
+      "type": "point",
+      "symbol": "settlement",
+      "color": "#1f2937",
+      "meaning": "Contexte terrain: villes, villages, hameaux.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_settlements.geojson",
+      "artifact": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_settlements.geojson"
+    },
+    {
+      "id": "osm_roads",
+      "label": "Routes principales",
+      "type": "line",
+      "symbol": "road",
+      "color": "#6b7280",
+      "meaning": "Contexte terrain: axes de circulation utiles pour l'acces.",
+      "zoom": {
+        "min": 6,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_roads.geojson",
+      "artifact": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_roads.geojson"
+    },
+    {
+      "id": "osm_health",
+      "label": "Sante",
+      "type": "point",
+      "symbol": "hospital",
+      "color": "#ef4444",
+      "meaning": "Contexte terrain: hopitaux et structures de sante.",
+      "zoom": {
+        "min": 8,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_health.geojson",
+      "artifact": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_health.geojson"
+    }
+  ],
+  "maplibre": {
+    "views": [
+      {
+        "id": "priority",
+        "field": "priority_score",
+        "label": "Priorite"
+      },
+      {
+        "id": "people_p3plus",
+        "field": "ipc_people_p3plus",
+        "label": "Personnes P3+"
+      },
+      {
+        "id": "share_p3plus",
+        "field": "ipc_share_p3plus",
+        "label": "Part P3+"
+      },
+      {
+        "id": "missing_data",
+        "field": "priority_label",
+        "label": "Donnees manquantes"
+      },
+      {
+        "id": "osm_context",
+        "field": "osm_context_note",
+        "label": "Contexte OSM"
+      }
+    ],
+    "admin_layer": "admin_priority",
+    "default_view": "priority",
+    "default_layers": [
+      "admin_priority",
+      "osm_water",
+      "osm_settlements",
+      "osm_roads"
+    ],
+    "legend_key": "legend"
+  },
+  "layers": [
+    {
+      "id": "admin_priority",
+      "type": "choropleth",
+      "field": "priority_score",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.geojson",
+      "label": "Carte prioritaire",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "status",
+      "type": "categorical",
+      "field": "status",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.geojson",
+      "label": "Statut humanitaire",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_settlements",
+      "type": "settlements",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_settlements.geojson",
+      "label": "Lieux habites",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_water",
+      "type": "water_points",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_water.geojson",
+      "label": "Points d'eau",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_health",
+      "type": "health",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_health.geojson",
+      "label": "Sante",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 8,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_roads",
+      "type": "roads",
+      "path": "data\\outputs\\burkina-faso\\map_20260428_220652.osm_context_roads.geojson",
+      "label": "Routes principales",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 6,
+        "max": null
+      }
+    }
+  ]
+}

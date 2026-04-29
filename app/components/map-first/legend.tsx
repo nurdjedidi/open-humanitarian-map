@@ -1,4 +1,4 @@
-import type { ResolvedLegendItem } from "~/data/datasets";
+import type { ResolvedLegendItem } from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import { cx } from "./ui";
 

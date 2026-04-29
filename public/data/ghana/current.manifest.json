@@ -1,0 +1,551 @@
+{
+  "geojson": "current.geojson",
+  "world_geojson": null,
+  "artifacts": {
+    "admin_priority": {
+      "geojson": "current.admin_priority.geojson",
+      "label": "Carte prioritaire",
+      "kind": "primary"
+    },
+    "osm_roads": {
+      "geojson": "current.osm_roads.geojson",
+      "label": "Routes principales",
+      "kind": "roads"
+    },
+    "osm_water": {
+      "geojson": "current.osm_water.geojson",
+      "label": "Points d'eau",
+      "kind": "water_points"
+    },
+    "osm_settlements": {
+      "geojson": "current.osm_settlements.geojson",
+      "label": "Lieux habites",
+      "kind": "settlements"
+    }
+  },
+  "run": {
+    "zone": "Ghana",
+    "output_name": "map",
+    "created_at": "2026-04-28T22:48:29",
+    "uploaded_files": [
+      "gha_admin0.geojson",
+      "gha_admin1.geojson",
+      "gha_admin2.geojson",
+      "ipc-sen.xlsx",
+      "gha_pop_2026.tif"
+    ]
+  },
+  "profile": {
+    "source_path": "C:\\Users\\djedi\\AppData\\Local\\Temp\\ohm_upload_6aujtlbb\\gha_admin2.geojson",
+    "source_type": "geojson",
+    "feature_count": 260,
+    "has_geometry": true,
+    "columns": [
+      "adm2_name",
+      "adm2_name1",
+      "adm2_name2",
+      "adm2_name3",
+      "adm2_pcode",
+      "adm1_name",
+      "adm1_name1",
+      "adm1_name2",
+      "adm1_name3",
+      "adm1_pcode",
+      "adm0_name",
+      "adm0_name1",
+      "adm0_name2",
+      "adm0_name3",
+      "adm0_pcode",
+      "valid_on",
+      "valid_to",
+      "area_sqkm",
+      "cod_version",
+      "lang",
+      "lang1",
+      "lang2",
+      "lang3",
+      "adm2_ref_name",
+      "center_lat",
+      "center_lon",
+      "gha_admin0_area_sqkm",
+      "gha_admin0_center_lat",
+      "gha_admin0_center_lon",
+      "gha_admin0_count",
+      "gha_admin1_area_sqkm",
+      "gha_admin1_center_lat",
+      "gha_admin1_center_lon",
+      "gha_admin1_count",
+      "ipc_sen_adm0_5_pcod2",
+      "ipc_sen_exercise_code",
+      "ipc_sen_exercise_year",
+      "ipc_sen_reference_code",
+      "ipc_sen_reference_year",
+      "ipc_sen_population",
+      "ipc_sen_phase_class",
+      "ipc_sen_phase1",
+      "ipc_sen_phase2",
+      "ipc_sen_phase3",
+      "ipc_sen_phase4",
+      "ipc_sen_phase5",
+      "ipc_sen_phase35",
+      "ipc_sen_foodconsumption_phase",
+      "ipc_sen_livelihoods_phase",
+      "ipc_sen_nutrition_phase",
+      "ipc_sen_mortality_phase",
+      "ipc_sen_fcg_poor",
+      "ipc_sen_fcg_borderline",
+      "ipc_sen_fcg_acceptable",
+      "ipc_sen_fcg_finalphase",
+      "ipc_sen_hdds_phase1",
+      "ipc_sen_hdds_phase2",
+      "ipc_sen_hdds_phase3",
+      "ipc_sen_hdds_phase4",
+      "ipc_sen_hdds_phase5",
+      "ipc_sen_hdds_finalphase",
+      "ipc_sen_hhs_phase1",
+      "ipc_sen_hhs_phase2",
+      "ipc_sen_hhs_phase3",
+      "ipc_sen_hhs_phase4",
+      "ipc_sen_hhs_phase5",
+      "ipc_sen_hhs_finalphase",
+      "ipc_sen_lhhcscat_nostrategies",
+      "ipc_sen_lhhcscat_stressstrategies",
+      "ipc_sen_lhhcscat_crisisstategies",
+      "ipc_sen_lhhcscat_emergencystrategies",
+      "ipc_sen_lhhcscat_finalphase",
+      "ipc_sen_rcsi_phase1",
+      "ipc_sen_rcsi_phase2",
+      "ipc_sen_rcsi_phase3",
+      "ipc_sen_rcsi_finalphase",
+      "ipc_sen_reference_label",
+      "ipc_sen_exercise_label",
+      "ipc_sen_chtype",
+      "ipc_sen_usethisperiod",
+      "ipc_sen_history",
+      "ipc_sen_history_count",
+      "ipc_sen_source_level",
+      "ipc_sen_inherited",
+      "gha_pop_2026_mean",
+      "gha_pop_2026_sum",
+      "geometry"
+    ],
+    "detected_fields": [
+      {
+        "logical_name": "geometry",
+        "source_name": "geometry",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "latitude",
+        "source_name": "center_lat",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "longitude",
+        "source_name": "center_lon",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "admin_name",
+        "source_name": "adm0_name",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "population_total",
+        "source_name": "ipc_sen_population",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "ipc_phase",
+        "source_name": "ipc_sen_phase_class",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase1",
+        "source_name": "ipc_sen_phase1",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase2",
+        "source_name": "ipc_sen_phase2",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase3",
+        "source_name": "ipc_sen_phase3",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase4",
+        "source_name": "ipc_sen_phase4",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase5",
+        "source_name": "ipc_sen_phase5",
+        "confidence": 0.8
+      },
+      {
+        "logical_name": "phase35",
+        "source_name": "ipc_sen_phase35",
+        "confidence": 0.8
+      }
+    ],
+    "crs": "EPSG:4326"
+  },
+  "summary": {
+    "feature_count": 260,
+    "status_counts": {
+      "Donnees manquantes": 130,
+      "A surveiller": 86,
+      "Prioritaire": 24,
+      "Faible": 19,
+      "Critique": 1
+    },
+    "score_min": 0.0,
+    "score_max": 0.7643929599774304,
+    "score_mean": 0.19180421668400138,
+    "score_100_mean": 19.17807692307692,
+    "people_p3plus_total": 1233030.29,
+    "osm_counts": {
+      "settlements": 5000,
+      "water_points": 863,
+      "health": 1615,
+      "roads": 5000
+    },
+    "osm_source": "local_pbf",
+    "top_regions": [
+      {
+        "name": "Pusiga",
+        "priority_rank": 1,
+        "priority_score": 0.7643929599774304,
+        "score_100": 76.4,
+        "priority_label": "Critique",
+        "decision_reason": "31k personnes P3+, 35.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 31356.15,
+        "ipc_people_p4plus": 10750.68,
+        "ipc_share_p3plus": 0.35000000000000003,
+        "ipc_population_total": 89589.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Builsa South",
+        "priority_rank": 2,
+        "priority_score": 0.7359616893088892,
+        "score_100": 73.6,
+        "priority_label": "Prioritaire",
+        "decision_reason": "13k personnes P3+, 33.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 13427.039999999999,
+        "ipc_people_p4plus": 3661.92,
+        "ipc_share_p3plus": 0.32999999999999996,
+        "ipc_population_total": 40688.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Bongo",
+        "priority_rank": 3,
+        "priority_score": 0.7333334027219496,
+        "score_100": 73.3,
+        "priority_label": "Prioritaire",
+        "decision_reason": "36k personnes P3+, 28.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 36266.72,
+        "ipc_people_p4plus": 3885.72,
+        "ipc_share_p3plus": 0.28,
+        "ipc_population_total": 129524.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Bunkpurugu Nakpanduri",
+        "priority_rank": 4,
+        "priority_score": 0.7085553917806485,
+        "score_100": 70.9,
+        "priority_label": "Prioritaire",
+        "decision_reason": "25k personnes P3+, 26.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 25041.9,
+        "ipc_people_p4plus": 5778.9,
+        "ipc_share_p3plus": 0.26,
+        "ipc_population_total": 96315.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      },
+      {
+        "name": "Karaga",
+        "priority_rank": 5,
+        "priority_score": 0.7034057928000383,
+        "score_100": 70.3,
+        "priority_label": "Prioritaire",
+        "decision_reason": "33k personnes P3+, 24.0% affectees. OSM eau absent.",
+        "ipc_phase_dominant": 3.0,
+        "ipc_people_p3plus": 32634.72,
+        "ipc_people_p4plus": 2719.56,
+        "ipc_share_p3plus": 0.24000000000000002,
+        "ipc_population_total": 135978.0,
+        "osm_water_points_count": null,
+        "osm_settlements_count": null
+      }
+    ],
+    "data_quality": {
+      "missing_counts": {
+        "priority_score": 0,
+        "score_100": 0,
+        "ipc_phase_dominant": 130,
+        "ipc_people_p3plus": 0,
+        "ipc_people_p4plus": 0,
+        "ipc_share_p3plus": 130,
+        "ipc_population_total": 130
+      },
+      "rows_without_priority_score": 0,
+      "rows_with_missing_decision_reason": 0,
+      "osm_layers_available": [
+        "settlements",
+        "water_points",
+        "health",
+        "roads"
+      ]
+    },
+    "pipeline_log": [
+      "OSM local detecte: ghana-260427.osm.pbf",
+      "Base admin choisie automatiquement: gha_admin2",
+      "gha_admin0: agregation spatiale terminee.",
+      "gha_admin1: agregation spatiale terminee.",
+      "ipc-sen: filtre pays applique via adm0_name (1422/40338 lignes conservees pour {'ghana'}).",
+      "ipc-sen: fusion tabulaire par region via adm2_pcod2 -> adm2_pcode (overlap=130, jointure directe).",
+      "gha_pop_2026.tif: progression raster 10/260",
+      "gha_pop_2026.tif: progression raster 20/260",
+      "gha_pop_2026.tif: progression raster 30/260",
+      "gha_pop_2026.tif: progression raster 40/260",
+      "gha_pop_2026.tif: progression raster 50/260",
+      "gha_pop_2026.tif: progression raster 60/260",
+      "gha_pop_2026.tif: progression raster 70/260",
+      "gha_pop_2026.tif: progression raster 80/260",
+      "gha_pop_2026.tif: progression raster 90/260",
+      "gha_pop_2026.tif: progression raster 100/260",
+      "gha_pop_2026.tif: progression raster 110/260",
+      "gha_pop_2026.tif: progression raster 120/260",
+      "gha_pop_2026.tif: progression raster 130/260",
+      "gha_pop_2026.tif: progression raster 140/260",
+      "gha_pop_2026.tif: progression raster 150/260",
+      "gha_pop_2026.tif: progression raster 160/260",
+      "gha_pop_2026.tif: progression raster 170/260",
+      "gha_pop_2026.tif: progression raster 180/260",
+      "gha_pop_2026.tif: progression raster 190/260",
+      "gha_pop_2026.tif: progression raster 200/260",
+      "gha_pop_2026.tif: progression raster 210/260",
+      "gha_pop_2026.tif: progression raster 220/260",
+      "gha_pop_2026.tif: progression raster 230/260",
+      "gha_pop_2026.tif: progression raster 240/260",
+      "gha_pop_2026.tif: progression raster 250/260",
+      "gha_pop_2026.tif: progression raster 260/260",
+      "gha_pop_2026.tif: agregation raster par region terminee.",
+      "OSM local: lecture ghana-260427.osm.pbf.",
+      "OSM local: extraction sur toute la zone du fichier .pbf.",
+      "OSM local: 5000 lieux, 863 eau, 1615 sante, 5000 routes."
+    ],
+    "groq": {
+      "raw": "```json\n{\n  \"headline\": \"Humanitarian Map Summary\",\n  \"top_hotspots\": [\n    {\n      \"name\": \"Pusiga\",\n      \"priority_rank\": 1,\n      \"priority_score\": 0.7643929599774304,\n      \"score_100\": 76.4,\n      \"priority_label\": \"Critique\",\n      \"decision_reason\": \"31k personnes P3+, 35.0% affectees. OSM eau absent.\",\n      \"ipc_phase_dominant\": 3.0,\n      \"ipc_people_p3plus\": 31356.15,\n      \"ipc_people_p4plus\": 10750.68,\n      \"ipc_share_p3plus\": 0.35000000000000003,\n      \"ipc_population_total\": 89589.0\n    },\n    {\n      \"name\": \"Builsa South\",\n      \"priority_rank\": 2,\n      \"priority_score\": 0.7359616893088892,\n      \"score_100\": 73.6,\n      \"priority_label\": \"Prioritaire\",\n      \"decision_reason\": \"13k personnes P3+, 33.0% affectees. OSM eau absent.\",\n      \"ipc_phase_dominant\": 3.0,\n      \"ipc_people_p3plus\": 13427.039999999999,\n      \"ipc_people_p4plus\": 3661.92,\n      \"ipc_share_p3plus\": 0.32999999999999996,\n      \"ipc_population_total\": 40688.0\n    },\n    {\n      \"name\": \"Bongo\",\n      \"priority_rank\": 3,\n      \"priority_score\": 0.7333334027219496,\n      \"score_100\": 73.3,\n      \"priority_label\": \"Prioritaire\",\n      \"decision_reason\": \"36k personnes P3+, 28.0% affectees. OSM eau absent.\",\n      \"ipc_phase_dominant\": 3.0,\n      \"ipc_people_p3plus\": 36266.72,\n      \"ipc_people_p4plus\": 3885.72,\n      \"ipc_share_p3plus\": 0.28,\n      \"ipc_population_total\": 129524.0\n    },\n    {\n      \"name\": \"Bunkpurugu Nakpanduri\",\n      \"priority_rank\": 4,\n      \"priority_score\": 0.7085553917806485,\n      \"score_100\": 70.9,\n      \"priority_label\": \"Prioritaire\",\n      \"decision_reason\": \"25k personnes P3+, 26.0% affectees. OSM eau absent.\",\n      \"ipc_phase_dominant\": 3.0,\n      \"ipc_people_p3plus\": 25041.9,\n      \"ipc_people_p4plus\": 5778.9,\n      \"ipc_share_p3plus\": 0.26,\n      \"ipc_population_total\": 96315.0\n    },\n    {\n      \"name\": \"Karaga\",\n      \"priority_rank\": 5,\n      \"priority_score\": 0.7034057928000383,\n      \"score_100\": 70.3,\n      \"priority_label\": \"Prioritaire\",\n      \"decision_reason\": \"33k personnes P3+, 24.0% affectees. OSM eau absent.\",\n      \"ipc_phase_dominant\": 3.0,\n      \"ipc_people_p3plus\": 32634.72,\n      \"ipc_people_p4plus\": 2719.56,\n      \"ipc_share_p3plus\": 0.24000000000000002,\n      \"ipc_population_total\": 135978.0\n    }\n  ],\n  \"data_gaps\": {\n    \"missing_counts\": {\n      \"ipc_phase_dominant\": 130,\n      \"ipc_people_p3plus\": 0,\n      \"ipc_people_p4plus\": 0,\n      \"ipc_share_p3plus\": 130,\n      \"ipc_population_total\": 130\n    },\n    \"rows_without_priority_score\": 0,\n    \"rows_with_missing_decision_reason\": 0,\n    \"osm_layers_available\": [\n      \"settlements\",\n      \"water_points\",\n      \"health\",\n      \"roads\"\n    ]\n  },\n  \"recommended_next_step\": \"Review and address data gaps, particularly in ipc_phase_dominant, ipc_share_p3plus, and ipc_population_total.\"\n}\n```"
+    }
+  },
+  "legend": [
+    {
+      "id": "admin_priority",
+      "label": "Priorite administrative",
+      "type": "choropleth",
+      "symbol": "fill",
+      "color_scale": [
+        "#fff1aa",
+        "#f5b437",
+        "#dc4b23",
+        "#91141a",
+        "#23080c"
+      ],
+      "meaning": "Couche principale: gravite IPC + population affectee.",
+      "zoom": {
+        "min": 0,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\ghana\\map_20260428_224829.geojson",
+      "artifact": "data\\outputs\\ghana\\map_20260428_224829.admin_priority.geojson"
+    },
+    {
+      "id": "osm_water",
+      "label": "Points d'eau",
+      "type": "point",
+      "symbol": "droplet",
+      "color": "#3b82f6",
+      "meaning": "Contexte terrain: points d'eau localises.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\ghana\\map_20260428_224829.osm_context_water.geojson",
+      "artifact": "data\\outputs\\ghana\\map_20260428_224829.osm_context_water.geojson"
+    },
+    {
+      "id": "osm_settlements",
+      "label": "Lieux habites",
+      "type": "point",
+      "symbol": "settlement",
+      "color": "#1f2937",
+      "meaning": "Contexte terrain: villes, villages, hameaux.",
+      "zoom": {
+        "min": 7,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\ghana\\map_20260428_224829.osm_context_settlements.geojson",
+      "artifact": "data\\outputs\\ghana\\map_20260428_224829.osm_context_settlements.geojson"
+    },
+    {
+      "id": "osm_roads",
+      "label": "Routes principales",
+      "type": "line",
+      "symbol": "road",
+      "color": "#6b7280",
+      "meaning": "Contexte terrain: axes de circulation utiles pour l'acces.",
+      "zoom": {
+        "min": 6,
+        "max": null
+      },
+      "visible_by_default": true,
+      "source": "data\\outputs\\ghana\\map_20260428_224829.osm_context_roads.geojson",
+      "artifact": "data\\outputs\\ghana\\map_20260428_224829.osm_context_roads.geojson"
+    },
+    {
+      "id": "osm_health",
+      "label": "Sante",
+      "type": "point",
+      "symbol": "hospital",
+      "color": "#ef4444",
+      "meaning": "Contexte terrain: hopitaux et structures de sante.",
+      "zoom": {
+        "min": 8,
+        "max": null
+      },
+      "visible_by_default": false,
+      "source": "data\\outputs\\ghana\\map_20260428_224829.osm_context_health.geojson",
+      "artifact": "data\\outputs\\ghana\\map_20260428_224829.osm_context_health.geojson"
+    }
+  ],
+  "maplibre": {
+    "views": [
+      {
+        "id": "priority",
+        "field": "priority_score",
+        "label": "Priorite"
+      },
+      {
+        "id": "people_p3plus",
+        "field": "ipc_people_p3plus",
+        "label": "Personnes P3+"
+      },
+      {
+        "id": "share_p3plus",
+        "field": "ipc_share_p3plus",
+        "label": "Part P3+"
+      },
+      {
+        "id": "missing_data",
+        "field": "priority_label",
+        "label": "Donnees manquantes"
+      },
+      {
+        "id": "osm_context",
+        "field": "osm_context_note",
+        "label": "Contexte OSM"
+      }
+    ],
+    "admin_layer": "admin_priority",
+    "default_view": "priority",
+    "default_layers": [
+      "admin_priority",
+      "osm_water",
+      "osm_settlements",
+      "osm_roads"
+    ],
+    "legend_key": "legend"
+  },
+  "layers": [
+    {
+      "id": "admin_priority",
+      "type": "choropleth",
+      "field": "priority_score",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.geojson",
+      "label": "Carte prioritaire",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "status",
+      "type": "categorical",
+      "field": "status",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.geojson",
+      "label": "Statut humanitaire",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 0,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_settlements",
+      "type": "settlements",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.osm_context_settlements.geojson",
+      "label": "Lieux habites",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_water",
+      "type": "water_points",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.osm_context_water.geojson",
+      "label": "Points d'eau",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 7,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_health",
+      "type": "health",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.osm_context_health.geojson",
+      "label": "Sante",
+      "visible_by_default": false,
+      "zoom": {
+        "min": 8,
+        "max": null
+      }
+    },
+    {
+      "id": "osm_roads",
+      "type": "roads",
+      "path": "data\\outputs\\ghana\\map_20260428_224829.osm_context_roads.geojson",
+      "label": "Routes principales",
+      "visible_by_default": true,
+      "zoom": {
+        "min": 6,
+        "max": null
+      }
+    }
+  ]
+}
