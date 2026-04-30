@@ -881,7 +881,7 @@ export async function loadCombinedDatasetProgressive(
 
   const hydrationQueue = catalogs.slice();
   const hydrationWorkers = Array.from(
-    { length: Math.min(10, hydrationQueue.length) },
+    { length: Math.min(3, hydrationQueue.length) },
     async () => {
       while (hydrationQueue.length) {
         const country = hydrationQueue.shift();

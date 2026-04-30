@@ -60,8 +60,8 @@ type MapViewProps = {
 
 const INITIAL_ZOOM = 4.55;
 const INITIAL_BOUNDS: [[number, number], [number, number]] = [
-  [-18.8, 4.0],
-  [16.5, 25.8],
+  [-19.5, 2.0],
+  [30.5, 28.5],
 ];
 const OHM_SOURCE_PREFIX = "ohm-src-";
 const OHM_LAYER_PREFIX = "ohm-lyr-";
