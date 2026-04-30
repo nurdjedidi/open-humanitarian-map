@@ -139,27 +139,27 @@ function resolveTileConfig(
     filename: string;
     sourceLayer: string;
   }> = [
-    {
-      layerId: "admin_priority",
-      filename: "current.admin_priority.pmtiles",
-      sourceLayer: "admin_priority",
-    },
-    {
-      layerId: "osm_roads",
-      filename: "current.osm_roads.pmtiles",
-      sourceLayer: "osm_roads",
-    },
-    {
-      layerId: "osm_water",
-      filename: "current.osm_water.pmtiles",
-      sourceLayer: "osm_water",
-    },
-    {
-      layerId: "osm_settlements",
-      filename: "current.osm_settlements.pmtiles",
-      sourceLayer: "osm_settlements",
-    },
-  ];
+      {
+        layerId: "admin_priority",
+        filename: "current.admin_priority.pmtiles",
+        sourceLayer: "admin_priority",
+      },
+      {
+        layerId: "osm_roads",
+        filename: "current.osm_roads.pmtiles",
+        sourceLayer: "osm_roads",
+      },
+      {
+        layerId: "osm_water",
+        filename: "current.osm_water.pmtiles",
+        sourceLayer: "osm_water",
+      },
+      {
+        layerId: "osm_settlements",
+        filename: "current.osm_settlements.pmtiles",
+        sourceLayer: "osm_settlements",
+      },
+    ];
 
   for (const tile of conventionalTiles) {
     if (!tileUrls[tile.layerId]) {
@@ -365,10 +365,10 @@ function decorateAdmin(admin: FeatureCollection): FeatureCollection {
       properties.feature_id = id;
       properties.region_name = asString(
         properties.adm3_name ||
-          properties.adm2_name ||
-          properties.adm1_name ||
-          properties.admin_name ||
-          properties.name,
+        properties.adm2_name ||
+        properties.adm1_name ||
+        properties.admin_name ||
+        properties.name,
         "Zone inconnue",
       );
       return {
@@ -428,8 +428,8 @@ function resolveLegend(manifest: ManifestLike): ResolvedLegendItem[] {
       type: (item.type === "line" ? "line" : item.type === "point" ? "point" : "choropleth") as ResolvedLegendItem["type"],
       symbol: (
         item.symbol === "road" ||
-        item.symbol === "settlement" ||
-        item.symbol === "droplet"
+          item.symbol === "settlement" ||
+          item.symbol === "droplet"
           ? item.symbol
           : "fill"
       ) as ResolvedLegendItem["symbol"],
@@ -835,10 +835,6 @@ export async function loadCombinedDatasetProgressive(
   if (!entries.length) {
     throw new Error("Aucun dataset pays trouvé dans public/data.");
   }
-  console.info(
-    "[OHM] Dataset index",
-    entries.map((entry) => entry.slug),
-  );
 
   const catalogs: RuntimeCountryCatalog[] = [];
   const datasets: MapDataset[] = [];
@@ -907,10 +903,6 @@ export async function loadCombinedDatasetProgressive(
   await Promise.allSettled(hydrationWorkers);
 
   const combined = buildCombinedDatasetFromParts(datasets);
-  console.info("[OHM] Dataset combiné", {
-    countries: datasets.map((dataset) => dataset.slug),
-    adminFeatures: combined.admin.features.length,
-  });
   return combined;
 }
 
