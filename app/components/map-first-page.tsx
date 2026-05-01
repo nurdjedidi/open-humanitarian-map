@@ -1,5 +1,5 @@
 import { useI18n } from "~/i18n/use-i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureCollection } from "geojson";
 
 import {
@@ -12,10 +12,12 @@ import {
 import { AdminReviewPanel } from "./contributions/admin-review-panel";
 import { AuthModal } from "./contributions/auth-modal";
 import { ContributionControls } from "./contributions/contribution-controls";
-import type { MapDataset } from "~/data/dataset-types";
+import type { AnalysisMode, MapDataset, PopulationCountrySummary } from "~/data/dataset-types";
 import {
   getIpcCountrySummary,
   getRegionDetail,
+  hydrateAdminForCountry,
+  loadCountryLayer,
   loadCombinedLayer,
   getTimelineFallbackSummary,
   getTimelineYears,
@@ -29,6 +31,63 @@ import { RegionTimelinePanel } from "./map-first/region-timeline-panel";
 
 function hasCountryTiles(dataset: MapDataset, layerId: "osm_roads" | "osm_water" | "osm_settlements") {
   return dataset.countries.some((country) => Boolean(country.tileUrls[layerId]));
+}
+
+function slugFromFeatureId(featureId: string | null | undefined): string | null {
+  if (!featureId) return null;
+  const separator = featureId.indexOf(":");
+  return separator === -1 ? null : featureId.slice(0, separator);
+}
+
+function summarizePopulationLayer(
+  layer: FeatureCollection | null | undefined,
+): PopulationCountrySummary[] {
+  if (!layer?.features?.length) return [];
+
+  const byCountry = new Map<string, PopulationCountrySummary>();
+  for (const feature of layer.features) {
+    const props = feature.properties ?? {};
+    const countryKey = String(props.country_slug ?? props.country ?? "unknown");
+    const countryName = String(props.country_name ?? props.country ?? countryKey);
+    const weight = Number(props.weight ?? props.population ?? 0);
+    const density = Number(props.density ?? props.population_density ?? 0);
+    const yearLabel = String(props.year_label ?? props.source_year ?? "n/a");
+
+    const current =
+      byCountry.get(countryKey) ??
+      {
+        countryKey,
+        countryName,
+        points: 0,
+        totalWeight: 0,
+        maxWeight: 0,
+        avgDensity: 0,
+        yearLabel,
+      };
+
+    current.points += 1;
+    current.totalWeight += Number.isFinite(weight) ? weight : 0;
+    current.maxWeight = Math.max(current.maxWeight, Number.isFinite(weight) ? weight : 0);
+    current.avgDensity = (current.avgDensity ?? 0) + (Number.isFinite(density) ? density : 0);
+    if (current.yearLabel === "n/a" && yearLabel !== "n/a") {
+      current.yearLabel = yearLabel;
+    }
+    byCountry.set(countryKey, current);
+  }
+
+  return Array.from(byCountry.values())
+    .map((item) => ({
+      ...item,
+      avgDensity: item.points > 0 ? (item.avgDensity ?? 0) / item.points : null,
+    }))
+    .sort((left, right) => right.totalWeight - left.totalWeight);
+}
+
+function combinePopulationCollections(
+  collections: Array<FeatureCollection | null | undefined>,
+): FeatureCollection | null {
+  const features = collections.flatMap((collection) => collection?.features ?? []);
+  return features.length ? { type: "FeatureCollection", features } : null;
 }
 
 function AppLoader() {
@@ -92,6 +151,7 @@ export function MapFirstPage() {
   const [showWater, setShowWater] = useState(false);
   const [showSettlements, setShowSettlements] = useState(false);
   const [showRoads, setShowRoads] = useState(true);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("ipc");
   const [basemapId, setBasemapId] = useState<BasemapId>("voyager");
   const [viewMode, setViewMode] = useState<ViewMode>("flat");
   const [droneMode, setDroneMode] = useState(false);
@@ -107,6 +167,33 @@ export function MapFirstPage() {
   const [contributionFeedback, setContributionFeedback] = useState<string | null>(null);
   const [contributionLoading, setContributionLoading] = useState(false);
   const [contributions, setContributions] = useState<FeatureCollection | null>(null);
+  const [visibleCountrySlugs, setVisibleCountrySlugs] = useState<string[]>([]);
+  const [populationByCountry, setPopulationByCountry] = useState<Record<string, FeatureCollection>>({});
+  const contextLayerStateRef = useRef({
+    showRoads: true,
+    showWater: false,
+    showSettlements: false,
+  });
+  const datasetPopulationSlugs = useMemo(
+    () =>
+      dataset?.countries
+        .filter((country) => Boolean(country.availableLayers.population))
+        .map((country) => country.slug) ?? [],
+    [dataset],
+  );
+  const visiblePopulationCountrySlugs = useMemo(
+    () =>
+      visibleCountrySlugs.filter((slug) =>
+        dataset?.countries.some(
+          (country) => country.slug === slug && Boolean(country.availableLayers.population),
+        ),
+      ),
+    [dataset, visibleCountrySlugs],
+  );
+  const populationTargetSlugs = useMemo(
+    () => (visiblePopulationCountrySlugs.length ? visiblePopulationCountrySlugs : datasetPopulationSlugs),
+    [datasetPopulationSlugs, visiblePopulationCountrySlugs],
+  );
 
   const refreshAuth = async () => {
     try {
@@ -200,6 +287,57 @@ export function MapFirstPage() {
     };
   }, [dataset, isDatasetComplete, showRoads, showWater, showSettlements]);
 
+  useEffect(() => {
+    if (!dataset || !isDatasetComplete || analysisMode !== "population" || !populationTargetSlugs.length) {
+      return;
+    }
+
+    const missing = populationTargetSlugs.filter((slug) => !populationByCountry[slug]);
+    if (!missing.length) return;
+
+    let cancelled = false;
+    Promise.all(missing.map((slug) => loadCountryLayer(slug, "population").then((collection) => [slug, collection] as const)))
+      .then((entries) => {
+        if (cancelled) return;
+        setPopulationByCountry((current) => {
+          const next = { ...current };
+          for (const [slug, collection] of entries) {
+            if (collection) next[slug] = collection;
+          }
+          return next;
+        });
+      })
+      .catch((error) => {
+        console.warn("[OHM] Couche population non chargee", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisMode, dataset, isDatasetComplete, populationByCountry, populationTargetSlugs]);
+
+  useEffect(() => {
+    if (!dataset || !selectedRegionId) return;
+    if (getRegionDetail(dataset, selectedRegionId)) return;
+
+    const slug = slugFromFeatureId(selectedRegionId);
+    if (!slug) return;
+
+    let cancelled = false;
+    hydrateAdminForCountry(slug)
+      .then((next) => {
+        if (!next || cancelled) return;
+        setDataset(next);
+      })
+      .catch((error) => {
+        console.warn(`[OHM] Hydratation ciblée admin ignorée: ${slug}`, error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dataset, selectedRegionId]);
+
   const basemapLabel = (id: BasemapId) => {
     if (id === "dark-matter") {
       return {
@@ -235,6 +373,49 @@ export function MapFirstPage() {
     () => (dataset ? getIpcCountrySummary(dataset, activeYear) : []),
     [dataset, activeYear],
   );
+  const populationSummary = useMemo(
+    () =>
+      summarizePopulationLayer(
+        combinePopulationCollections(
+          populationTargetSlugs.map((slug) => populationByCountry[slug]).filter(Boolean),
+        ),
+      ),
+    [populationByCountry, populationTargetSlugs],
+  );
+  const populationOverlay = useMemo(
+    () =>
+      combinePopulationCollections(
+        populationTargetSlugs.map((slug) => populationByCountry[slug]).filter(Boolean),
+      ),
+    [populationByCountry, populationTargetSlugs],
+  );
+
+  const changeAnalysisMode = (nextMode: AnalysisMode) => {
+    if (nextMode === analysisMode) return;
+
+    if (nextMode === "population") {
+      if (!datasetPopulationSlugs.length) {
+        return;
+      }
+      contextLayerStateRef.current = {
+        showRoads,
+        showWater,
+        showSettlements,
+      };
+      setShowRoads(false);
+      setShowWater(false);
+      setShowSettlements(false);
+      setSelectedRegionId(null);
+      setActivePanel(null);
+      setAnalysisMode("population");
+      return;
+    }
+
+    setAnalysisMode("ipc");
+    setShowRoads(contextLayerStateRef.current.showRoads);
+    setShowWater(contextLayerStateRef.current.showWater);
+    setShowSettlements(contextLayerStateRef.current.showSettlements);
+  };
 
   const setTypeAndDefaultValue = (nextType: ContributionType) => {
     setContributionType(nextType);
@@ -296,9 +477,12 @@ export function MapFirstPage() {
       <div className="absolute inset-0">
         <MapView
           dataset={displayDataset}
+          analysisMode={analysisMode}
+          holdLoading={!isDatasetComplete}
           showRoads={showRoads}
           showWater={showWater}
           showSettlements={showSettlements}
+          populationData={populationOverlay}
           basemapId={basemapId}
           viewMode={viewMode}
           droneMode={droneMode}
@@ -311,6 +495,7 @@ export function MapFirstPage() {
             setContributionFeedback(null);
           }}
           onRegionSelect={(region) => setSelectedRegionId(region?.id ?? null)}
+          onVisibleCountriesChange={setVisibleCountrySlugs}
         />
       </div>
 
@@ -319,6 +504,8 @@ export function MapFirstPage() {
       <FloatingControlButtons
         activePanel={activePanel}
         setActivePanel={setActivePanel}
+        analysisMode={analysisMode}
+        setAnalysisMode={changeAnalysisMode}
       />
 
       <FloatingSidePanel
@@ -339,17 +526,22 @@ export function MapFirstPage() {
         basemaps={BASEMAPS}
         basemapLabel={basemapLabel}
         legend={displayDataset.legend}
+        analysisMode={analysisMode}
+        setAnalysisMode={changeAnalysisMode}
         timelineYears={timelineYears}
         activeYear={activeYear}
         setActiveYear={setActiveYear}
         timelineFallbacks={timelineFallbacks}
         ipcSummary={ipcSummary}
+        populationSummary={populationSummary}
       />
 
-      <RegionTimelinePanel
-        region={getRegionDetail(dataset, selectedRegionId)}
-        onClose={() => setSelectedRegionId(null)}
-      />
+      {analysisMode === "ipc" ? (
+        <RegionTimelinePanel
+          region={getRegionDetail(dataset, selectedRegionId)}
+          onClose={() => setSelectedRegionId(null)}
+        />
+      ) : null}
 
       <ContributionControls
         isAuthenticated={Boolean(auth)}

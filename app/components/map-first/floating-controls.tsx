@@ -9,7 +9,12 @@ import {
   Plane,
 } from "lucide-react";
 
-import type { IpcCountrySummary, ResolvedLegendItem } from "~/data/dataset-types";
+import type {
+  AnalysisMode,
+  IpcCountrySummary,
+  PopulationCountrySummary,
+  ResolvedLegendItem,
+} from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import { formatCompactNumber, formatPercent } from "~/utils";
 import type { BasemapId, ViewMode } from "../map-view";
@@ -21,20 +26,50 @@ export type FloatingPanelId = "layers" | "basemap" | "legend" | "ipc" | null;
 export function FloatingControlButtons({
   activePanel,
   setActivePanel,
+  analysisMode,
+  setAnalysisMode,
 }: {
   activePanel: FloatingPanelId;
   setActivePanel: (value: FloatingPanelId) => void;
+  analysisMode: AnalysisMode;
+  setAnalysisMode: (value: AnalysisMode) => void;
 }) {
   const { t } = useI18n();
   const items = [
     { id: "layers" as const, label: t("demo.layers"), icon: PanelLeftOpen },
     { id: "basemap" as const, label: t("demo.basemap"), icon: Map },
     { id: "legend" as const, label: t("demo.legend"), icon: BookOpen },
-    { id: "ipc" as const, label: "IPC", icon: BarChart3 },
+    { id: "ipc" as const, label: analysisMode === "population" ? "Population" : "IPC", icon: BarChart3 },
   ];
 
   return (
     <div className="absolute left-3 top-[86px] z-30 flex flex-col gap-2 md:left-4 md:top-[96px]">
+      <div className="flex overflow-hidden rounded-2xl border border-white/10 bg-[#08131e]/90 p-1 shadow-[0_12px_34px_rgba(2,6,12,0.3)] backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={() => setAnalysisMode("ipc")}
+          className={cx(
+            "rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition",
+            analysisMode === "ipc"
+              ? "bg-[#d98a35] text-[#08131e]"
+              : "text-[#d7e4ee] hover:bg-white/[0.06]",
+          )}
+        >
+          IPC
+        </button>
+        <button
+          type="button"
+          onClick={() => setAnalysisMode("population")}
+          className={cx(
+            "rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition",
+            analysisMode === "population"
+              ? "bg-[#c084fc] text-[#08131e]"
+              : "text-[#d7e4ee] hover:bg-white/[0.06]",
+          )}
+        >
+          POP
+        </button>
+      </div>
       {items.map((item) => {
         const Icon = item.icon;
         const active = activePanel === item.id;
@@ -148,16 +183,12 @@ function TimelineBlock({
         </button>
       </div>
 
-      <p className="mt-3 hidden text-xs leading-5 text-[#96abbb] md:block">
-        {t("demo.timelineHint")}
-      </p>
+      <p className="mt-3 hidden text-xs leading-5 text-[#96abbb] md:block">{t("demo.timelineHint")}</p>
 
       {timelineFallbacks.length ? (
         <p className="mt-2 rounded-xl border border-[#d98a35]/20 bg-[#d98a35]/8 px-2.5 py-1.5 text-[11px] leading-4 text-[#f2d4a0] md:py-2 md:text-xs md:leading-5">
           {t("demo.timelineFallbackNote", {
-            details: timelineFallbacks
-              .map((item) => `${item.countryName}: ${item.latestYear}`)
-              .join(" · "),
+            details: timelineFallbacks.map((item) => `${item.countryName}: ${item.latestYear}`).join(" · "),
           })}
         </p>
       ) : null}
@@ -165,9 +196,134 @@ function TimelineBlock({
   );
 }
 
+function PopulationSummaryPanel({ populationSummary }: { populationSummary: PopulationCountrySummary[] }) {
+  if (!populationSummary.length) {
+    return (
+      <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-sm leading-6 text-[#9ab0c1]">
+        Active un pays avec artefact population publie pour voir le resume. Le mode reste leger tant que la couche n'est
+        pas demandee.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {populationSummary.map((country) => (
+        <article
+          key={country.countryKey}
+          className="rounded-[22px] border border-white/8 bg-[#162231]/88 p-3 shadow-[0_14px_38px_rgba(0,0,0,0.18)]"
+        >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="truncate text-lg font-semibold text-[#f5f0e8]">{country.countryName}</h3>
+              <p className="mt-0.5 text-xs text-[#91a8ba]">Annee source: {country.yearLabel}</p>
+            </div>
+            <div className="shrink-0 rounded-2xl border border-[#c084fc]/35 bg-[#c084fc]/14 px-3 py-2 text-right">
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#edd5ff]">Points</div>
+              <div className="text-sm font-black text-[#f5e9ff]">{formatCompactNumber(country.points)}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+            <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+              <div className="text-[#8fa8bb]">Poids total</div>
+              <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.totalWeight)}</div>
+            </div>
+            <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+              <div className="text-[#8fa8bb]">Pic local</div>
+              <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.maxWeight)}</div>
+            </div>
+            <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+              <div className="text-[#8fa8bb]">Densite moy.</div>
+              <div className="truncate text-sm font-black text-[#edf5fb]">
+                {country.avgDensity !== null ? formatCompactNumber(country.avgDensity) : "n/a"}
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function IpcSummaryPanel({ ipcSummary }: { ipcSummary: IpcCountrySummary[] }) {
+  return (
+    <div className="space-y-3">
+      {ipcSummary.map((country) => {
+        const total = Math.max(country.population, 1);
+        const phases = [
+          { label: "1", value: country.phase1, color: "bg-[#dcefa1]", text: "text-[#dcefa1]" },
+          { label: "2", value: country.phase2, color: "bg-[#ffd45d]", text: "text-[#ffd45d]" },
+          { label: "3", value: country.phase3, color: "bg-[#f59a2f]", text: "text-[#f59a2f]" },
+          { label: "4", value: country.phase4, color: "bg-[#dd4b2f]", text: "text-[#ff9c88]" },
+          { label: "5", value: country.phase5, color: "bg-[#5d1115]", text: "text-[#ff7b8a]" },
+        ];
+
+        return (
+          <article
+            key={country.countryKey}
+            className="rounded-[22px] border border-white/8 bg-[#162231]/88 p-3 shadow-[0_14px_38px_rgba(0,0,0,0.18)]"
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-lg font-semibold text-[#f5f0e8]">{country.countryName}</h3>
+                <p className="mt-0.5 text-xs text-[#91a8ba]">Donnee utilisee: {country.latestYear ?? "n/a"}</p>
+              </div>
+              <div className="shrink-0 rounded-2xl border border-[#d98a35]/35 bg-[#d98a35]/14 px-3 py-2 text-right">
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffd38b]">P3+</div>
+                <div className="text-sm font-black text-[#ffe2aa]">{formatPercent(country.phase3plusShare)}</div>
+              </div>
+            </div>
+
+            <div className="mb-3 flex h-4 overflow-hidden rounded-full bg-black/20 ring-1 ring-white/8">
+              {phases.map((phase) => (
+                <div
+                  key={phase.label}
+                  className={phase.color}
+                  style={{ width: `${Math.max(0, (phase.value / total) * 100)}%` }}
+                  title={`IPC ${phase.label}: ${formatCompactNumber(phase.value)}`}
+                />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+              <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                <div className="text-[#8fa8bb]">Population</div>
+                <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.population)}</div>
+              </div>
+              <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                <div className="text-[#8fa8bb]">P3+</div>
+                <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase3plus)}</div>
+              </div>
+              <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
+                <div className="text-[#8fa8bb]">P4+</div>
+                <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase4plus)}</div>
+              </div>
+            </div>
+
+            <div className="mt-3 overflow-hidden rounded-2xl border border-white/8">
+              {phases.map((phase) => (
+                <div
+                  key={phase.label}
+                  className="grid grid-cols-[62px_1fr] items-center border-b border-white/6 bg-white/[0.025] px-3 py-2 text-xs last:border-b-0"
+                >
+                  <div className={`font-bold ${phase.text}`}>IPC {phase.label}</div>
+                  <div className="text-right font-semibold text-[#edf5fb]">{formatCompactNumber(phase.value)}</div>
+                </div>
+              ))}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function PanelContent({
   activePanel,
   setActivePanel,
+  analysisMode,
+  setAnalysisMode,
   showRoads,
   showWater,
   showSettlements,
@@ -188,9 +344,12 @@ function PanelContent({
   setActiveYear,
   timelineFallbacks,
   ipcSummary,
+  populationSummary,
 }: {
   activePanel: Exclude<FloatingPanelId, null>;
   setActivePanel: (value: FloatingPanelId) => void;
+  analysisMode: AnalysisMode;
+  setAnalysisMode: (value: AnalysisMode) => void;
   showRoads: boolean;
   showWater: boolean;
   showSettlements: boolean;
@@ -211,6 +370,7 @@ function PanelContent({
   setActiveYear: (value: number | null) => void;
   timelineFallbacks: Array<{ countryName: string; latestYear: number }>;
   ipcSummary: IpcCountrySummary[];
+  populationSummary: PopulationCountrySummary[];
 }) {
   const { t } = useI18n();
 
@@ -224,7 +384,9 @@ function PanelContent({
               ? t("demo.basemap")
               : activePanel === "legend"
                 ? t("demo.legend")
-                : "IPC"}
+                : analysisMode === "population"
+                  ? "Population"
+                  : "IPC"}
         </div>
         <button
           type="button"
@@ -236,30 +398,64 @@ function PanelContent({
       </div>
 
       {activePanel === "layers" ? (
-          <PanelSection title={t("demo.layers")}>
-          <TimelineBlock
-            t={t}
-            timelineYears={timelineYears}
-            activeYear={activeYear}
-            setActiveYear={setActiveYear}
-            timelineFallbacks={timelineFallbacks}
-          />
+        <PanelSection title={t("demo.layers")}>
+          <div className="mb-3 flex overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            <button
+              type="button"
+              onClick={() => setAnalysisMode("ipc")}
+              className={cx(
+                "flex-1 rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition",
+                analysisMode === "ipc"
+                  ? "bg-[#d98a35] text-[#08131e]"
+                  : "text-[#d7e4ee] hover:bg-white/[0.06]",
+              )}
+            >
+              IPC
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnalysisMode("population")}
+              className={cx(
+                "flex-1 rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition",
+                analysisMode === "population"
+                  ? "bg-[#c084fc] text-[#08131e]"
+                  : "text-[#d7e4ee] hover:bg-white/[0.06]",
+              )}
+            >
+              Population
+            </button>
+          </div>
+
+          {analysisMode === "ipc" ? (
+            <TimelineBlock
+              t={t}
+              timelineYears={timelineYears}
+              activeYear={activeYear}
+              setActiveYear={setActiveYear}
+              timelineFallbacks={timelineFallbacks}
+            />
+          ) : (
+            <div className="mb-3 rounded-2xl border border-[#c084fc]/20 bg-[#c084fc]/10 px-3 py-2.5 text-xs leading-5 text-[#ead6ff] md:mb-4">
+              Mode population rasterise. Les couches OSM sont coupees par defaut pour laisser le glow et les points lire
+              les densites plus clairement.
+            </div>
+          )}
 
           <div className="space-y-2 md:space-y-3">
             <ToggleRow label={t("demo.roads")} checked={showRoads} onChange={setShowRoads} />
             <ToggleRow label={t("demo.water")} checked={showWater} onChange={setShowWater} />
-            <ToggleRow
-              label={t("demo.settlements")}
-              checked={showSettlements}
-              onChange={setShowSettlements}
-            />
+            <ToggleRow label={t("demo.settlements")} checked={showSettlements} onChange={setShowSettlements} />
           </div>
 
           <p className="mt-3 hidden text-sm leading-6 text-[#96abbb] md:block">
-            {t("demo.layersHint")}
+            {analysisMode === "population"
+              ? "Active les reperes terrain si tu veux recroiser la densite avec les routes, l'eau ou les villages."
+              : t("demo.layersHint")}
           </p>
           <p className="mt-2 text-[11px] leading-4 text-[#7f98ab] md:text-xs md:leading-5">
-            {t("demo.population2020Note")}
+            {analysisMode === "population"
+              ? "La couche population vient des TIFF publies pour le web sous forme de points ponderes et d'un glow macro."
+              : t("demo.population2020Note")}
           </p>
         </PanelSection>
       ) : null}
@@ -290,22 +486,20 @@ function PanelContent({
           </div>
 
           <div className="border-t border-white/8 pt-4">
-            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
-              Mode de vue
-            </div>
+            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">Mode de vue</div>
             <div className="grid gap-2">
               {[
                 {
                   id: "flat" as const,
                   icon: Layers3,
                   label: "Vue d'ensemble",
-                  description: "Lecture plane et stable à grande échelle",
+                  description: "Lecture plane et stable a grande echelle",
                 },
                 {
                   id: "urban-3d" as const,
                   icon: Building2,
                   label: "3D",
-                  description: "Zoom fort et bâtiments extrudés si disponibles",
+                  description: "Zoom fort et batiments extrudes si disponibles",
                 },
               ].map((mode) => {
                 const Icon = mode.icon;
@@ -352,9 +546,7 @@ function PanelContent({
                 <Plane className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
                   <div className="font-semibold">Drone</div>
-                  <div className="text-xs text-[#8ea7bb]">
-                    Vue inclinée et zoom rapproché. Peut se combiner avec le mode 3D.
-                  </div>
+                  <div className="text-xs text-[#8ea7bb]">Vue inclinee et zoom rapproche. Peut se combiner avec le mode 3D.</div>
                 </div>
               </button>
             </div>
@@ -373,85 +565,23 @@ function PanelContent({
       ) : null}
 
       {activePanel === "ipc" ? (
-        <PanelSection title="Population par phase IPC">
-          <div className="mb-3 rounded-2xl border border-[#d98a35]/20 bg-[#d98a35]/10 px-3 py-2.5 text-xs leading-5 text-[#f0d6a5]">
-            Agrégation par pays sur l'année active. P3+ = IPC 3 + IPC 4 + IPC 5.
-          </div>
-          <div className="space-y-3">
-            {ipcSummary.map((country) => {
-              const total = Math.max(country.population, 1);
-              const phases = [
-                { label: "1", value: country.phase1, color: "bg-[#dcefa1]", text: "text-[#dcefa1]" },
-                { label: "2", value: country.phase2, color: "bg-[#ffd45d]", text: "text-[#ffd45d]" },
-                { label: "3", value: country.phase3, color: "bg-[#f59a2f]", text: "text-[#f59a2f]" },
-                { label: "4", value: country.phase4, color: "bg-[#dd4b2f]", text: "text-[#ff9c88]" },
-                { label: "5", value: country.phase5, color: "bg-[#5d1115]", text: "text-[#ff7b8a]" },
-              ];
-
-              return (
-                <article
-                  key={country.countryKey}
-                  className="rounded-[22px] border border-white/8 bg-[#162231]/88 p-3 shadow-[0_14px_38px_rgba(0,0,0,0.18)]"
-                >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="truncate text-lg font-semibold text-[#f5f0e8]">{country.countryName}</h3>
-                      <p className="mt-0.5 text-xs text-[#91a8ba]">
-                        Donnée utilisée: {country.latestYear ?? "n/a"}
-                      </p>
-                    </div>
-                    <div className="shrink-0 rounded-2xl border border-[#d98a35]/35 bg-[#d98a35]/14 px-3 py-2 text-right">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffd38b]">P3+</div>
-                      <div className="text-sm font-black text-[#ffe2aa]">{formatPercent(country.phase3plusShare)}</div>
-                    </div>
-                  </div>
-
-                  <div className="mb-3 flex h-4 overflow-hidden rounded-full bg-black/20 ring-1 ring-white/8">
-                    {phases.map((phase) => (
-                      <div
-                        key={phase.label}
-                        className={phase.color}
-                        style={{ width: `${Math.max(0, (phase.value / total) * 100)}%` }}
-                        title={`IPC ${phase.label}: ${formatCompactNumber(phase.value)}`}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
-                      <div className="text-[#8fa8bb]">Population</div>
-                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.population)}</div>
-                    </div>
-                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
-                      <div className="text-[#8fa8bb]">P3+</div>
-                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase3plus)}</div>
-                    </div>
-                    <div className="min-w-0 rounded-2xl bg-white/[0.055] px-3 py-2">
-                      <div className="text-[#8fa8bb]">P4+</div>
-                      <div className="truncate text-sm font-black text-[#edf5fb]">{formatCompactNumber(country.phase4plus)}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-white/8">
-                    {phases.map((phase) => (
-                      <div
-                        key={phase.label}
-                        className="grid grid-cols-[62px_1fr] items-center border-b border-white/6 bg-white/[0.025] px-3 py-2 text-xs last:border-b-0"
-                      >
-                        <div className={`font-bold ${phase.text}`}>IPC {phase.label}</div>
-                        <div className="text-right font-semibold text-[#edf5fb]">
-                          {formatCompactNumber(phase.value)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </PanelSection>
+        analysisMode === "population" ? (
+          <PanelSection title="Mode population">
+            <div className="mb-3 rounded-2xl border border-[#c084fc]/20 bg-[#c084fc]/10 px-3 py-2.5 text-xs leading-5 text-[#ead6ff]">
+              Lecture derivee du raster population. Le glow montre les concentrations larges, puis les points prennent le
+              relai au zoom.
+            </div>
+            <PopulationSummaryPanel populationSummary={populationSummary} />
+          </PanelSection>
+        ) : (
+          <PanelSection title="Population par phase IPC">
+            <div className="mb-3 rounded-2xl border border-[#d98a35]/20 bg-[#d98a35]/10 px-3 py-2.5 text-xs leading-5 text-[#f0d6a5]">
+              Aggregation par pays sur l'annee active. P3+ = IPC 3 + IPC 4 + IPC 5.
+            </div>
+            <IpcSummaryPanel ipcSummary={ipcSummary} />
+          </PanelSection>
+        )
       ) : null}
-
     </>
   );
 }
@@ -459,6 +589,8 @@ function PanelContent({
 export function FloatingSidePanel({
   activePanel,
   setActivePanel,
+  analysisMode,
+  setAnalysisMode,
   showRoads,
   showWater,
   showSettlements,
@@ -479,9 +611,12 @@ export function FloatingSidePanel({
   setActiveYear,
   timelineFallbacks,
   ipcSummary,
+  populationSummary,
 }: {
   activePanel: FloatingPanelId;
   setActivePanel: (value: FloatingPanelId) => void;
+  analysisMode: AnalysisMode;
+  setAnalysisMode: (value: AnalysisMode) => void;
   showRoads: boolean;
   showWater: boolean;
   showSettlements: boolean;
@@ -502,12 +637,15 @@ export function FloatingSidePanel({
   setActiveYear: (value: number | null) => void;
   timelineFallbacks: Array<{ countryName: string; latestYear: number }>;
   ipcSummary: IpcCountrySummary[];
+  populationSummary: PopulationCountrySummary[];
 }) {
   if (!activePanel) return null;
 
   const contentProps = {
     activePanel,
     setActivePanel,
+    analysisMode,
+    setAnalysisMode,
     showRoads,
     showWater,
     showSettlements,
@@ -528,6 +666,7 @@ export function FloatingSidePanel({
     setActiveYear,
     timelineFallbacks,
     ipcSummary,
+    populationSummary,
   };
 
   return (
@@ -543,12 +682,7 @@ export function FloatingSidePanel({
         </div>
       </aside>
 
-      <MobileSheet
-        open={Boolean(activePanel)}
-        title=""
-        onClose={() => setActivePanel(null)}
-        withBackdrop={false}
-      >
+      <MobileSheet open={Boolean(activePanel)} title="" onClose={() => setActivePanel(null)} withBackdrop={false}>
         <PanelContent {...contentProps} />
       </MobileSheet>
     </>

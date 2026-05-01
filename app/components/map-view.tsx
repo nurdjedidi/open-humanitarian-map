@@ -8,7 +8,12 @@ import type { MapGeoJSONFeature, StyleSpecification } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Protocol } from "pmtiles";
 
-import type { MapDataset, RegionRecord, SupportedLayerId } from "~/data/dataset-types";
+import type {
+  AnalysisMode,
+  MapDataset,
+  RegionRecord,
+  SupportedLayerId,
+} from "~/data/dataset-types";
 import { useI18n } from "~/i18n/use-i18n";
 import {
   formatCompactNumber,
@@ -34,6 +39,13 @@ type SelectionDetail =
       title: string;
       badges: [string, string?];
       accent: "blue" | "slate" | "green";
+    }
+  | {
+      kind: "population";
+      id: string;
+      title: string;
+      badges: [string, string?];
+      accent: "violet";
     };
 
 type TooltipPosition = {
@@ -43,9 +55,12 @@ type TooltipPosition = {
 
 type MapViewProps = {
   dataset: MapDataset;
+  analysisMode: AnalysisMode;
+  holdLoading?: boolean;
   showWater: boolean;
   showSettlements: boolean;
   showRoads: boolean;
+  populationData?: FeatureCollection | null;
   basemapId: BasemapId;
   viewMode: ViewMode;
   droneMode: boolean;
@@ -56,6 +71,7 @@ type MapViewProps = {
   onMapClick?: (coordinate: [number, number]) => void;
   onRegionHover?: (region: RegionRecord | null) => void;
   onRegionSelect?: (region: RegionRecord | null) => void;
+  onVisibleCountriesChange?: (slugs: string[]) => void;
 };
 
 const INITIAL_ZOOM = 4.55;
@@ -184,6 +200,42 @@ function removeSourceIfExists(map: any, id: string) {
   }
 }
 
+function safeHasLayer(map: any, id: string): boolean {
+  try {
+    return Boolean(map?.getStyle?.()?.layers) && Boolean(map.getLayer(id));
+  } catch {
+    return false;
+  }
+}
+
+function safeQueryVisibleCountrySlugs(
+  map: any,
+  countries: MapDataset["countries"],
+): string[] {
+  try {
+    if (!map?.getStyle?.()?.layers) return [];
+    const adminLayerIds = countries
+      .map((country) => layerId(country.slug, "admin-fill"))
+      .filter((id) => safeHasLayer(map, id));
+
+    if (!adminLayerIds.length) return [];
+
+    const features = map.queryRenderedFeatures(undefined, {
+      layers: adminLayerIds,
+    }) as MapGeoJSONFeature[];
+
+    return Array.from(
+      new Set(
+        features
+          .map((feature) => countries.find((country) => feature.layer.id.includes(country.slug))?.slug ?? null)
+          .filter((slug): slug is string => Boolean(slug)),
+      ),
+    );
+  } catch {
+    return [];
+  }
+}
+
 function removeBuildingsLayer(map: any) {
   removeLayerIfExists(map, "ohm-3d-buildings");
 }
@@ -260,6 +312,7 @@ function applyOperationalLayers(
   map: any,
   dataset: MapDataset,
   options: {
+    analysisMode: AnalysisMode;
     showRoads: boolean;
     showWater: boolean;
     showSettlements: boolean;
@@ -276,6 +329,7 @@ function applyOperationalLayers(
   );
 
   for (const country of dataset.countries) {
+    const hasPopulationLayer = Boolean(country.availableLayers.population);
     const adminTileUrl = country.tileUrls.admin_priority;
     const adminSourceLayer = country.tileSourceLayers.admin_priority ?? "admin_priority";
     if (adminTileUrl) {
@@ -327,7 +381,16 @@ function applyOperationalLayers(
               ],
               "#e5e7eb",
             ],
-            "fill-opacity": adminFillOpacity(options.droneMode),
+            "fill-opacity":
+              options.analysisMode === "population"
+                ? hasPopulationLayer
+                  ? options.droneMode
+                    ? 0.12
+                    : 0.18
+                  : options.droneMode
+                    ? 0.03
+                    : 0.05
+                : adminFillOpacity(options.droneMode),
           },
         },
         beforeId,
@@ -342,9 +405,27 @@ function applyOperationalLayers(
           source: adminSourceId,
           "source-layer": adminSourceLayer,
           paint: {
-            "line-color": options.droneMode ? "#6b7280" : "#4b5563",
-            "line-width": options.droneMode ? 0.7 : 1.0,
-            "line-opacity": options.droneMode ? 0.5 : 0.85,
+            "line-color":
+              options.analysisMode === "population"
+                ? options.droneMode
+                  ? "#6b7280"
+                  : "#8ea0b0"
+                : options.droneMode
+                  ? "#6b7280"
+                  : "#4b5563",
+            "line-width": options.analysisMode === "population" ? 0.9 : options.droneMode ? 0.7 : 1.0,
+            "line-opacity":
+              options.analysisMode === "population"
+                ? hasPopulationLayer
+                  ? options.droneMode
+                    ? 0.22
+                    : 0.42
+                  : options.droneMode
+                    ? 0.08
+                    : 0.16
+                : options.droneMode
+                  ? 0.5
+                  : 0.85,
           },
         },
         beforeId,
@@ -365,7 +446,7 @@ function applyOperationalLayers(
           paint: {
             "line-color": "#ffffff",
             "line-width": options.droneMode ? 2.8 : 3.6,
-            "line-opacity": 1,
+            "line-opacity": options.analysisMode === "population" ? 0 : 1,
           },
         },
         beforeId,
@@ -684,9 +765,12 @@ export const BASEMAPS: Array<{
 
 export function MapView({
   dataset,
+  analysisMode,
+  holdLoading = false,
   showWater,
   showSettlements,
   showRoads,
+  populationData,
   basemapId,
   viewMode,
   droneMode,
@@ -697,6 +781,7 @@ export function MapView({
   onMapClick,
   onRegionHover,
   onRegionSelect,
+  onVisibleCountriesChange,
 }: MapViewProps) {
   const { t } = useI18n();
   const mapRootRef = useRef<HTMLDivElement | null>(null);
@@ -704,10 +789,59 @@ export function MapView({
   const contributionModeRef = useRef(contributionMode);
   const onMapClickRef = useRef(onMapClick);
   const datasetRef = useRef(dataset);
+  const analysisModeRef = useRef<AnalysisMode>(analysisMode);
+  const onVisibleCountriesChangeRef = useRef(onVisibleCountriesChange);
+  const mapStateRef = useRef({
+    analysisMode,
+    showRoads,
+    showWater,
+    showSettlements,
+    basemapId,
+    viewMode,
+    droneMode,
+    selectedRegionId: selectedRegionId ?? null,
+    contributions,
+    pendingContributionCoordinate,
+  });
+  const deckOverlayRef = useRef<any>(null);
 
   useEffect(() => {
     datasetRef.current = dataset;
   }, [dataset]);
+
+  useEffect(() => {
+    onVisibleCountriesChangeRef.current = onVisibleCountriesChange;
+  }, [onVisibleCountriesChange]);
+
+  useEffect(() => {
+    analysisModeRef.current = analysisMode;
+  }, [analysisMode]);
+
+  useEffect(() => {
+    mapStateRef.current = {
+      analysisMode,
+      showRoads,
+      showWater,
+      showSettlements,
+      basemapId,
+      viewMode,
+      droneMode,
+      selectedRegionId: selectedRegionId ?? null,
+      contributions,
+      pendingContributionCoordinate,
+    };
+  }, [
+    analysisMode,
+    basemapId,
+    contributions,
+    droneMode,
+    pendingContributionCoordinate,
+    selectedRegionId,
+    showRoads,
+    showSettlements,
+    showWater,
+    viewMode,
+  ]);
 
   const [detail, setDetail] = useState<SelectionDetail | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition | null>(null);
@@ -758,38 +892,75 @@ export function MapView({
       );
 
       const bindStyleState = () => {
+        const currentDataset = datasetRef.current;
+        const currentState = mapStateRef.current;
         const nextLabelLayerId = findLabelLayerId(map);
         setLabelLayerId(nextLabelLayerId);
-        tuneBasemapLabels(map, basemapId);
-        applyOperationalLayers(map, dataset, {
-          showRoads,
-          showWater,
-          showSettlements,
-          selectedRegionId,
-          droneMode,
+        tuneBasemapLabels(map, currentState.basemapId);
+        applyOperationalLayers(map, currentDataset, {
+          analysisMode: currentState.analysisMode,
+          showRoads: currentState.showRoads,
+          showWater: currentState.showWater,
+          showSettlements: currentState.showSettlements,
+          selectedRegionId: currentState.selectedRegionId,
+          droneMode: currentState.droneMode,
           labelLayerId: nextLabelLayerId,
-          contributions,
-          pendingContributionCoordinate,
+          contributions: currentState.contributions ?? undefined,
+          pendingContributionCoordinate: currentState.pendingContributionCoordinate ?? undefined,
         });
 
-        if (viewMode === "urban-3d") {
+        if (currentState.viewMode === "urban-3d") {
           ensureBuildingsLayer(map, nextLabelLayerId);
         } else {
           removeBuildingsLayer(map);
         }
       };
 
+      const emitVisibleCountries = () => {
+        const currentDataset = datasetRef.current;
+        const callback = onVisibleCountriesChangeRef.current;
+        if (!callback) return;
+
+        const adminLayerIds = currentDataset.countries
+          .map((country) => layerId(country.slug, "admin-fill"))
+          .filter((id) => safeHasLayer(map, id));
+
+        if (!adminLayerIds.length) {
+          callback([]);
+          return;
+        }
+
+        callback(safeQueryVisibleCountrySlugs(map, currentDataset.countries));
+      };
+
       map.on("load", () => {
         bindStyleState();
         requestAnimationFrame(() => {
           map.resize();
+          emitVisibleCountries();
           setIsMapReady(true);
         });
       });
 
-      map.on("style.load", bindStyleState);
+      map.on("style.load", () => {
+        bindStyleState();
+        requestAnimationFrame(() => {
+          emitVisibleCountries();
+        });
+      });
+      map.on("moveend", emitVisibleCountries);
+      map.on("idle", emitVisibleCountries);
 
       map.on("mousemove", (event: any) => {
+        if (analysisModeRef.current === "population") {
+          onRegionHover?.(null);
+          if (detail?.kind === "region") {
+            setDetail(null);
+            setTooltipPosition(null);
+          }
+          return;
+        }
+
         const currentDataset = datasetRef.current;
         const adminLayerIds = currentDataset.countries.map((country) =>
           layerId(country.slug, "admin-fill"),
@@ -810,7 +981,7 @@ export function MapView({
             ...waterLayerIds,
             ...settlementLayerIds,
             contributionLayerId,
-          ].filter((id) => map.getLayer(id)),
+          ].filter((id) => safeHasLayer(map, id)),
         }) as MapGeoJSONFeature[];
 
         if (!features.length) {
@@ -898,13 +1069,16 @@ export function MapView({
           onMapClickRef.current?.([event.lngLat.lng, event.lngLat.lat]);
           return;
         }
+        if (analysisModeRef.current === "population") {
+          return;
+        }
 
         const currentDataset = datasetRef.current;
         const adminLayerIds = currentDataset.countries.map((country) =>
           layerId(country.slug, "admin-fill"),
         );
         const features = map.queryRenderedFeatures(event.point, {
-          layers: adminLayerIds.filter((id) => map.getLayer(id)),
+          layers: adminLayerIds.filter((id) => safeHasLayer(map, id)),
         }) as MapGeoJSONFeature[];
 
         if (!features.length) return;
@@ -944,10 +1118,145 @@ export function MapView({
 
     return () => {
       mounted = false;
+      if (deckOverlayRef.current && mapRef.current) {
+        try {
+          mapRef.current.removeControl(deckOverlayRef.current);
+        } catch {
+          // Ignore teardown mismatches.
+        }
+      }
+      deckOverlayRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let cancelled = false;
+
+    const run = async () => {
+        const { MapboxOverlay } = await import("@deck.gl/mapbox");
+        const { HeatmapLayer } = await import("@deck.gl/aggregation-layers");
+        const { ScatterplotLayer } = await import("@deck.gl/layers");
+      if (cancelled || !mapRef.current) return;
+
+      if (!deckOverlayRef.current) {
+        deckOverlayRef.current = new MapboxOverlay({ interleaved: false, layers: [] });
+        map.addControl(deckOverlayRef.current);
+      }
+
+      if (analysisMode !== "population" || !populationData?.features?.length) {
+        deckOverlayRef.current.setProps({ layers: [] });
+        return;
+      }
+
+      const features = populationData.features.filter((feature) => {
+        const coordinates = feature.geometry?.type === "Point" ? feature.geometry.coordinates : null;
+        return (
+          Array.isArray(coordinates) &&
+          coordinates.length >= 2 &&
+          Number.isFinite(Number(coordinates[0])) &&
+          Number.isFinite(Number(coordinates[1]))
+        );
+      }) as Array<Feature>;
+
+      const points = features.map((feature) => ({
+        position: (feature.geometry as unknown as { coordinates: [number, number] }).coordinates,
+        properties: feature.properties ?? {},
+      }));
+
+      const handleHover = (info: any) => {
+        if (analysisModeRef.current !== "population") return false;
+
+        const object = info?.object as { properties?: Record<string, unknown> } | undefined;
+        if (!object?.properties) {
+          setDetail((current) => (current?.kind === "population" ? null : current));
+          setTooltipPosition(null);
+          return false;
+        }
+
+        const props = object.properties;
+        const weight = safeNumber(props.weight ?? props.population);
+        const density = safeNumber(props.density ?? props.population_density);
+        const countryName = String(props.country_name ?? props.country ?? "Population");
+        const yearLabel = String(props.year_label ?? props.source_year ?? "n/a");
+
+        setDetail({
+          kind: "population",
+          id: String(props.feature_id ?? `${countryName}-${weight ?? density ?? "cell"}`),
+          title: countryName,
+          badges: [
+            `Pop ${formatCompactNumber(weight)}`,
+            `Densite ${formatCompactNumber(density)} · ${yearLabel}`,
+          ],
+          accent: "violet",
+        });
+        setTooltipPosition(info?.x && info?.y ? { x: info.x, y: info.y } : null);
+        return true;
+      };
+
+      deckOverlayRef.current.setProps({
+        layers: [
+          new HeatmapLayer({
+            id: "ohm-population-heat",
+            data: points,
+            pickable: false,
+            radiusPixels: 58,
+            intensity: 0.85,
+            threshold: 0.045,
+            getPosition: (point: any) => point.position,
+            getWeight: (point: any) =>
+              Number(point.properties?.weight ?? point.properties?.population ?? 0),
+            colorRange: [
+              [11, 35, 58, 0],
+              [21, 94, 117, 120],
+              [10, 149, 191, 155],
+              [71, 214, 204, 185],
+              [201, 242, 166, 205],
+              [255, 194, 102, 225],
+              [240, 98, 64, 240],
+              [196, 46, 79, 255],
+            ],
+            visible: true,
+          }),
+          new ScatterplotLayer({
+            id: "ohm-population-points",
+            data: points,
+            pickable: true,
+            opacity: 0.18,
+            radiusUnits: "meters",
+            radiusMinPixels: 1,
+            radiusMaxPixels: 4,
+            getPosition: (point: any) => point.position,
+            getRadius: (point: any) => {
+              const weight = Number(point.properties?.weight ?? point.properties?.population ?? 0);
+              if (!Number.isFinite(weight) || weight <= 0) return 900;
+              return Math.max(900, Math.min(2600, Math.sqrt(weight) * 12));
+            },
+            getFillColor: (point: any) => {
+              const density = Number(point.properties?.density ?? point.properties?.population_density ?? 0);
+              if (density >= 1200) return [196, 46, 79, 210];
+              if (density >= 600) return [240, 98, 64, 190];
+              if (density >= 180) return [255, 194, 102, 170];
+              if (density >= 60) return [71, 214, 204, 150];
+              return [10, 149, 191, 130];
+            },
+            onHover: handleHover,
+            visible: true,
+          }),
+        ],
+      });
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisMode, populationData, droneMode, viewMode]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -963,6 +1272,7 @@ export function MapView({
     if (!map || !map.isStyleLoaded()) return;
 
     applyOperationalLayers(map, dataset, {
+      analysisMode,
       showRoads,
       showWater,
       showSettlements,
@@ -979,7 +1289,14 @@ export function MapView({
     } else {
       removeBuildingsLayer(map);
     }
+
+    requestAnimationFrame(() => {
+      const callback = onVisibleCountriesChangeRef.current;
+      if (!callback) return;
+      callback(safeQueryVisibleCountrySlugs(map, dataset.countries));
+    });
   }, [
+    analysisMode,
     basemapId,
     contributions,
     dataset,
@@ -998,11 +1315,11 @@ export function MapView({
     if (!map) return;
 
     map.easeTo({
-      pitch: droneMode ? 70 : viewMode === "urban-3d" ? 58 : 0,
-      bearing: droneMode ? -22 : viewMode === "urban-3d" ? -14 : 0,
+      pitch: droneMode ? 60 : viewMode === "urban-3d" ? 50 : 0,
+      bearing: droneMode ? -16 : viewMode === "urban-3d" ? -10 : 0,
       zoom:
         viewMode === "urban-3d"
-          ? Math.max(map.getZoom(), droneMode ? 15.8 : 15.2)
+          ? Math.max(map.getZoom(), droneMode ? 15.4 : 14.9)
           : map.getZoom(),
       duration: 900,
     });
@@ -1011,8 +1328,11 @@ export function MapView({
   return (
     <div className="map-shell relative h-full w-full overflow-hidden bg-[#081119]">
       <div id="map-root" ref={mapRootRef} className="h-full w-full bg-[#081119]" />
+      {analysisMode === "population" ? (
+        <div className="pointer-events-none absolute inset-0 z-[5] bg-[radial-gradient(circle_at_22%_18%,rgba(109,40,217,0.3),transparent_32%),radial-gradient(circle_at_78%_14%,rgba(8,145,178,0.24),transparent_28%),linear-gradient(180deg,rgba(2,6,12,0.26),rgba(2,6,12,0.56))]" />
+      ) : null}
 
-      {!isMapReady ? (
+      {!isMapReady || holdLoading ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(24,40,56,0.92),rgba(8,17,26,0.98))]">
           <div className="flex max-w-[320px] flex-col items-center gap-3 rounded-3xl border border-white/10 bg-white/5 px-6 py-5 text-center text-[#eef4fa] shadow-[0_24px_80px_rgba(2,6,12,0.36)] backdrop-blur-md">
             <div className="map-loader h-10 w-10 rounded-full border-2 border-white/15 border-t-[#f0c170]" />
@@ -1042,6 +1362,8 @@ export function MapView({
                   ? "bg-[#f0c170]"
                   : detail.accent === "blue"
                     ? "bg-[#3f93ff]"
+                    : detail.accent === "violet"
+                      ? "bg-[#c084fc]"
                     : detail.accent === "green"
                       ? "bg-[#8bd7a6]"
                       : "bg-[#94a3b8]",
@@ -1059,6 +1381,8 @@ export function MapView({
                         ? "border-[#f0c17033] bg-[#f0c1701a] text-[#ffe0a7]"
                         : detail.accent === "blue"
                           ? "border-[#3f93ff33] bg-[#3f93ff1a] text-[#cfe2ff]"
+                          : detail.accent === "violet"
+                            ? "border-[#c084fc33] bg-[#c084fc1a] text-[#f0d8ff]"
                           : detail.accent === "green"
                             ? "border-[#8bd7a633] bg-[#8bd7a61a] text-[#dff8e8]"
                             : "border-white/10 bg-white/[0.05] text-[#d7dee5]",

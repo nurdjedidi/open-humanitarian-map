@@ -35,6 +35,7 @@ type RuntimeCountryCatalog = {
   files: Map<string, JsonModule>;
   tileUrls: Partial<Record<SupportedLayerId, string>>;
   tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
+  availableLayers: Partial<Record<SupportedLayerId, boolean>>;
 };
 
 type FileRequest = {
@@ -103,6 +104,9 @@ function canonicalLayerId(layerId: string | undefined): SupportedLayerId | null 
   if (layerId === "osm_water" || layerId === "osm_context_water") return "osm_water";
   if (layerId === "osm_settlements" || layerId === "osm_context_settlements") return "osm_settlements";
   if (layerId === "osm_roads" || layerId === "osm_context_roads") return "osm_roads";
+  if (layerId === "population" || layerId === "population_density" || layerId === "population_points") {
+    return "population";
+  }
   return null;
 }
 
@@ -110,6 +114,7 @@ function currentFileName(layerId: SupportedLayerId): string {
   if (layerId === "admin_priority") return "current.admin_priority.geojson";
   if (layerId === "osm_water") return "current.osm_water.geojson";
   if (layerId === "osm_settlements") return "current.osm_settlements.geojson";
+  if (layerId === "population") return "current.population.geojson";
   return "current.osm_roads.geojson";
 }
 
@@ -123,15 +128,18 @@ function resolveTileConfig(
 ): {
   tileUrls: Partial<Record<SupportedLayerId, string>>;
   tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
+  availableLayers: Partial<Record<SupportedLayerId, boolean>>;
 } {
   const tileUrls: Partial<Record<SupportedLayerId, string>> = {};
   const tileSourceLayers: Partial<Record<SupportedLayerId, string>> = {};
+  const availableLayers: Partial<Record<SupportedLayerId, boolean>> = {};
 
   for (const [artifactId, artifact] of Object.entries(manifest.tiles?.artifacts ?? {})) {
     const layerId = canonicalLayerId(artifactId);
     if (!layerId || !artifact.pmtiles) continue;
     tileUrls[layerId] = `${DATA_BASE_URL}/${slug}/${basename(artifact.pmtiles)}`;
     tileSourceLayers[layerId] = artifact.source_layer ?? artifactId;
+    availableLayers[layerId] = true;
   }
 
   const conventionalTiles: Array<{
@@ -168,9 +176,36 @@ function resolveTileConfig(
     if (!tileSourceLayers[tile.layerId]) {
       tileSourceLayers[tile.layerId] = tile.sourceLayer;
     }
+    if (availableLayers[tile.layerId] === undefined) {
+      availableLayers[tile.layerId] = true;
+    }
   }
 
-  return { tileUrls, tileSourceLayers };
+  const hasPopulationArtifact =
+    Object.entries(manifest.artifacts ?? {}).some(
+      ([artifactId, artifact]) =>
+        canonicalLayerId(artifactId) === "population" && Boolean(artifact.geojson),
+    ) ||
+    Boolean(
+      Object.entries(manifest.tiles?.artifacts ?? {}).find(
+        ([artifactId, artifact]) =>
+          canonicalLayerId(artifactId) === "population" && Boolean(artifact.pmtiles),
+      ),
+    );
+
+  if (hasPopulationArtifact) {
+    if (!tileUrls.population) {
+      tileUrls.population = `${DATA_BASE_URL}/${slug}/current.population.pmtiles`;
+    }
+    if (!tileSourceLayers.population) {
+      tileSourceLayers.population = "population";
+    }
+    availableLayers.population = true;
+  } else {
+    availableLayers.population = false;
+  }
+
+  return { tileUrls, tileSourceLayers, availableLayers };
 }
 
 function withRuntimeCacheBuster(url: string): string {
@@ -215,6 +250,15 @@ function fallbackLegend(): ResolvedLegendItem[] {
       meaning: "Villes, bourgs et villages OSM.",
       visibleByDefault: false,
       color: "#111827",
+    },
+    {
+      id: "population",
+      label: "Population",
+      type: "heatmap",
+      symbol: "population",
+      meaning: "Densite de population derivee du raster WorldPop.",
+      visibleByDefault: false,
+      colorScale: ["#0f172a", "#1d4ed8", "#38bdf8", "#f59e0b", "#f97316", "#fb7185"],
     },
   ];
 }
@@ -264,6 +308,25 @@ function fileRequestForLayer(
   manifest: ManifestLike,
   layerId: SupportedLayerId,
 ): FileRequest | null {
+  if (layerId === "population") {
+    const hasPopulationArtifact =
+      Object.entries(manifest.artifacts ?? {}).some(
+        ([artifactId, artifact]) =>
+          canonicalLayerId(artifactId) === "population" && Boolean(artifact.geojson),
+      ) ||
+      Boolean(
+        Object.entries(manifest.tiles?.artifacts ?? {}).find(
+          ([artifactId, artifact]) =>
+            canonicalLayerId(artifactId) === "population" &&
+            (Boolean(artifact.geojson_fallback) || Boolean(artifact.pmtiles)),
+        ),
+      );
+
+    if (!hasPopulationArtifact) {
+      return null;
+    }
+  }
+
   const references: string[] = [];
 
   if (layerId === "admin_priority" && manifest.geojson) {
@@ -334,10 +397,14 @@ async function hydrateCountryAdmin(country: RuntimeCountryCatalog): Promise<void
   }
 }
 
+function isCountryAdminHydrated(country: RuntimeCountryCatalog): boolean {
+  return Boolean(resolveAdminGeoJson(country, country.manifest)?.features.length);
+}
+
 async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCountryCatalog> {
   const manifestUrl = `${DATA_BASE_URL}/${entry.slug}/${basename(entry.manifest)}`;
   const manifest = await fetchJson<ManifestLike>(manifestUrl);
-  const { tileUrls, tileSourceLayers } = resolveTileConfig(entry.slug, manifest);
+  const { tileUrls, tileSourceLayers, availableLayers } = resolveTileConfig(entry.slug, manifest);
 
   return {
     slug: entry.slug,
@@ -347,6 +414,7 @@ async function buildCountryCatalog(entry: DatasetIndexEntry): Promise<RuntimeCou
     files: new Map<string, JsonModule>(),
     tileUrls,
     tileSourceLayers,
+    availableLayers,
   };
 }
 
@@ -562,9 +630,10 @@ function resolveLayerDefaults(
     osm_water: false,
     osm_settlements: false,
     osm_roads: true,
+    population: false,
   };
 
-  for (const layerId of ["admin_priority", "osm_water", "osm_settlements", "osm_roads"] as SupportedLayerId[]) {
+  for (const layerId of ["admin_priority", "osm_water", "osm_settlements", "osm_roads", "population"] as SupportedLayerId[]) {
     const layerEntry = (manifest.layers ?? []).find(
       (layer) => canonicalLayerId(layer.id) === layerId,
     );
@@ -607,6 +676,7 @@ function buildDataset(country: RuntimeCountryCatalog): MapDataset {
         manifestName: country.manifestName,
         tileUrls: country.tileUrls,
         tileSourceLayers: country.tileSourceLayers,
+        availableLayers: country.availableLayers,
       },
     ],
     adminHydrated: admin.features.length > 0,
@@ -645,7 +715,7 @@ function combineLegend(datasets: MapDataset[]): ResolvedLegendItem[] {
       if (!seen.has(item.id)) seen.set(item.id, item);
     }
   }
-  return (["admin_priority", "osm_water", "osm_settlements", "osm_roads"] as SupportedLayerId[])
+  return (["admin_priority", "osm_water", "osm_settlements", "osm_roads", "population"] as SupportedLayerId[])
     .map((id) => seen.get(id))
     .filter(Boolean) as ResolvedLegendItem[];
 }
@@ -656,6 +726,7 @@ function combineLayerDefaults(datasets: MapDataset[]): Record<SupportedLayerId, 
     osm_water: false,
     osm_settlements: false,
     osm_roads: false,
+    population: false,
   };
 }
 
@@ -776,6 +847,40 @@ export async function loadCombinedLayer(
   return combined;
 }
 
+export async function loadCountryLayer(
+  slug: string,
+  layerId: Exclude<SupportedLayerId, "admin_priority">,
+): Promise<FeatureCollection | null> {
+  if (!catalogCache?.length) {
+    throw new Error("Le catalogue OHM n'est pas encore charge.");
+  }
+
+  const country = catalogCache.find((item) => item.slug === slug);
+  if (!country) return null;
+
+  const collection = await resolveCountryLayer(country, layerId);
+  if (!collection) return null;
+
+  return {
+    type: "FeatureCollection",
+    features: collection.features.map((feature, index) => {
+      const properties = { ...(feature.properties ?? {}) };
+      const baseId =
+        asString(properties.feature_id) ||
+        asString(properties.osm_id) ||
+        asString(properties.id) ||
+        `${country.slug}-${layerId}-${index}`;
+      properties.feature_id = `${country.slug}:${baseId}`;
+      properties.country_slug = country.slug;
+      properties.country_name = asString(country.manifest.run?.zone, country.title ?? country.slug);
+      return {
+        ...feature,
+        properties,
+      };
+    }),
+  };
+}
+
 export async function loadCombinedDataset(): Promise<MapDataset> {
   const entries = sortDatasetEntries(await fetchDatasetIndex());
   if (!entries.length) {
@@ -855,6 +960,7 @@ export async function loadCombinedDatasetProgressive(
           catalogs.push(catalog);
           datasets.push(dataset);
           catalogCache = catalogs.slice();
+          onPartialDataset(buildCombinedDatasetFromParts([...datasets]));
         } catch (error) {
           console.warn(`[OHM] Dataset ignoré: ${entry.slug}`, error);
         }
@@ -863,7 +969,6 @@ export async function loadCombinedDatasetProgressive(
   );
 
   const results = await Promise.allSettled(manifestWorkers);
-  onPartialDataset(buildCombinedDatasetFromParts(datasets));
   results.forEach((result, index) => {
     if (result.status === "rejected") {
       console.warn(
@@ -878,6 +983,9 @@ export async function loadCombinedDatasetProgressive(
       `Aucun dataset pays chargeable depuis ${DATA_INDEX_URL}. Vérifie les slugs et fichiers current.* dans le stockage.`,
     );
   }
+
+  const initialCombined = buildCombinedDatasetFromParts(datasets);
+  return initialCombined;
 
   const hydrationQueue = catalogs.slice();
   const hydrationWorkers = Array.from(
@@ -904,6 +1012,19 @@ export async function loadCombinedDatasetProgressive(
 
   const combined = buildCombinedDatasetFromParts(datasets);
   return combined;
+}
+
+export async function hydrateAdminForCountry(slug: string): Promise<MapDataset | null> {
+  if (!catalogCache?.length) return null;
+
+  const country = catalogCache.find((item) => item.slug === slug);
+  if (!country) return null;
+
+  if (!isCountryAdminHydrated(country)) {
+    await hydrateCountryAdmin(country);
+  }
+
+  return buildCombinedDatasetFromParts(catalogCache.map((catalog) => buildDataset(catalog)));
 }
 
 export function getTimelineFallbackSummary(

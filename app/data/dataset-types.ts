@@ -69,19 +69,32 @@ export type SupportedLayerId =
   | "admin_priority"
   | "osm_water"
   | "osm_settlements"
-  | "osm_roads";
+  | "osm_roads"
+  | "population";
+
+export type AnalysisMode = "ipc" | "population";
 
 export type ResolvedLegendItem = {
   id: SupportedLayerId;
   label: string;
-  type: "choropleth" | "point" | "line";
-  symbol: "fill" | "droplet" | "settlement" | "road";
+  type: "choropleth" | "point" | "line" | "heatmap";
+  symbol: "fill" | "droplet" | "settlement" | "road" | "population";
   meaning: string;
   visibleByDefault: boolean;
   color?: string;
   colorScale?: string[];
   zoomMin?: number | null;
   zoomMax?: number | null;
+};
+
+export type PopulationCountrySummary = {
+  countryKey: string;
+  countryName: string;
+  points: number;
+  totalWeight: number;
+  maxWeight: number;
+  avgDensity: number | null;
+  yearLabel: string;
 };
 
 export type RegionRecord = {
@@ -153,6 +166,7 @@ export type MapDataset = {
     manifestName: string;
     tileUrls: Partial<Record<SupportedLayerId, string>>;
     tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
+    availableLayers: Partial<Record<SupportedLayerId, boolean>>;
   }>;
   adminHydrated: boolean;
 };
