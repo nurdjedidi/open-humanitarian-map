@@ -169,6 +169,7 @@ export function MapFirstPage() {
   const [contributions, setContributions] = useState<FeatureCollection | null>(null);
   const [visibleCountrySlugs, setVisibleCountrySlugs] = useState<string[]>([]);
   const [populationByCountry, setPopulationByCountry] = useState<Record<string, FeatureCollection>>({});
+  const [populationLoading, setPopulationLoading] = useState(false);
   const contextLayerStateRef = useRef({
     showRoads: true,
     showWater: false,
@@ -181,18 +182,9 @@ export function MapFirstPage() {
         .map((country) => country.slug) ?? [],
     [dataset],
   );
-  const visiblePopulationCountrySlugs = useMemo(
-    () =>
-      visibleCountrySlugs.filter((slug) =>
-        dataset?.countries.some(
-          (country) => country.slug === slug && Boolean(country.availableLayers.population),
-        ),
-      ),
-    [dataset, visibleCountrySlugs],
-  );
   const populationTargetSlugs = useMemo(
-    () => (visiblePopulationCountrySlugs.length ? visiblePopulationCountrySlugs : datasetPopulationSlugs),
-    [datasetPopulationSlugs, visiblePopulationCountrySlugs],
+    () => datasetPopulationSlugs,
+    [datasetPopulationSlugs],
   );
 
   const refreshAuth = async () => {
@@ -289,13 +281,18 @@ export function MapFirstPage() {
 
   useEffect(() => {
     if (!dataset || !isDatasetComplete || analysisMode !== "population" || !populationTargetSlugs.length) {
+      setPopulationLoading(false);
       return;
     }
 
     const missing = populationTargetSlugs.filter((slug) => !populationByCountry[slug]);
-    if (!missing.length) return;
+    if (!missing.length) {
+      setPopulationLoading(false);
+      return;
+    }
 
     let cancelled = false;
+    setPopulationLoading(true);
     Promise.all(missing.map((slug) => loadCountryLayer(slug, "population").then((collection) => [slug, collection] as const)))
       .then((entries) => {
         if (cancelled) return;
@@ -306,8 +303,12 @@ export function MapFirstPage() {
           }
           return next;
         });
+        setPopulationLoading(false);
       })
       .catch((error) => {
+        if (!cancelled) {
+          setPopulationLoading(false);
+        }
         console.warn("[OHM] Couche population non chargee", error);
       });
 
@@ -407,11 +408,14 @@ export function MapFirstPage() {
       setShowSettlements(false);
       setSelectedRegionId(null);
       setActivePanel(null);
+      const targetSlugs = datasetPopulationSlugs.filter((slug) => !populationByCountry[slug]);
+      setPopulationLoading(targetSlugs.length > 0);
       setAnalysisMode("population");
       return;
     }
 
     setAnalysisMode("ipc");
+    setPopulationLoading(false);
     setShowRoads(contextLayerStateRef.current.showRoads);
     setShowWater(contextLayerStateRef.current.showWater);
     setShowSettlements(contextLayerStateRef.current.showSettlements);
@@ -478,7 +482,7 @@ export function MapFirstPage() {
         <MapView
           dataset={displayDataset}
           analysisMode={analysisMode}
-          holdLoading={!isDatasetComplete}
+          holdLoading={!isDatasetComplete || (analysisMode === "population" && populationLoading)}
           showRoads={showRoads}
           showWater={showWater}
           showSettlements={showSettlements}

@@ -804,6 +804,7 @@ export function MapView({
     pendingContributionCoordinate,
   });
   const deckOverlayRef = useRef<any>(null);
+  const populationHoverClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     datasetRef.current = dataset;
@@ -1118,6 +1119,10 @@ export function MapView({
 
     return () => {
       mounted = false;
+      if (populationHoverClearRef.current) {
+        clearTimeout(populationHoverClearRef.current);
+        populationHoverClearRef.current = null;
+      }
       if (deckOverlayRef.current && mapRef.current) {
         try {
           mapRef.current.removeControl(deckOverlayRef.current);
@@ -1168,13 +1173,25 @@ export function MapView({
         properties: feature.properties ?? {},
       }));
 
+      const clearPopulationHover = () => {
+        setDetail((current) => (current?.kind === "population" ? null : current));
+        setTooltipPosition(null);
+      };
+
       const handleHover = (info: any) => {
         if (analysisModeRef.current !== "population") return false;
 
+        if (populationHoverClearRef.current) {
+          clearTimeout(populationHoverClearRef.current);
+          populationHoverClearRef.current = null;
+        }
+
         const object = info?.object as { properties?: Record<string, unknown> } | undefined;
         if (!object?.properties) {
-          setDetail((current) => (current?.kind === "population" ? null : current));
-          setTooltipPosition(null);
+          populationHoverClearRef.current = setTimeout(() => {
+            clearPopulationHover();
+            populationHoverClearRef.current = null;
+          }, 120);
           return false;
         }
 
@@ -1198,7 +1215,7 @@ export function MapView({
         return true;
       };
 
-      deckOverlayRef.current.setProps({
+        deckOverlayRef.current.setProps({
         layers: [
           new HeatmapLayer({
             id: "ohm-population-heat",
@@ -1220,6 +1237,24 @@ export function MapView({
               [240, 98, 64, 240],
               [196, 46, 79, 255],
             ],
+            visible: true,
+          }),
+          new ScatterplotLayer({
+            id: "ohm-population-hitarea",
+            data: points,
+            pickable: true,
+            opacity: 0.015,
+            radiusUnits: "meters",
+            radiusMinPixels: 10,
+            radiusMaxPixels: 20,
+            getPosition: (point: any) => point.position,
+            getRadius: (point: any) => {
+              const weight = Number(point.properties?.weight ?? point.properties?.population ?? 0);
+              if (!Number.isFinite(weight) || weight <= 0) return 2400;
+              return Math.max(2400, Math.min(8000, Math.sqrt(weight) * 34));
+            },
+            getFillColor: () => [255, 255, 255, 8],
+            onHover: handleHover,
             visible: true,
           }),
           new ScatterplotLayer({
@@ -1315,15 +1350,17 @@ export function MapView({
     if (!map) return;
 
     map.easeTo({
-      pitch: droneMode ? 60 : viewMode === "urban-3d" ? 50 : 0,
-      bearing: droneMode ? -16 : viewMode === "urban-3d" ? -10 : 0,
+      pitch: analysisMode === "population" ? 0 : droneMode ? 60 : viewMode === "urban-3d" ? 50 : 0,
+      bearing: analysisMode === "population" ? 0 : droneMode ? -16 : viewMode === "urban-3d" ? -10 : 0,
       zoom:
-        viewMode === "urban-3d"
+        analysisMode === "population"
+          ? Math.max(map.getZoom(), 4.8)
+          : viewMode === "urban-3d"
           ? Math.max(map.getZoom(), droneMode ? 15.4 : 14.9)
           : map.getZoom(),
       duration: 900,
     });
-  }, [viewMode, droneMode]);
+  }, [analysisMode, viewMode, droneMode]);
 
   return (
     <div className="map-shell relative h-full w-full overflow-hidden bg-[#081119]">
