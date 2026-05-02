@@ -1,6 +1,7 @@
 import { useI18n } from "~/i18n/use-i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureCollection } from "geojson";
+import { AlertTriangle, X } from "lucide-react";
 
 import {
   createContribution,
@@ -28,6 +29,13 @@ import { BASEMAPS, MapView, type BasemapId, type ViewMode } from "./map-view";
 import { FloatingControlButtons, FloatingSidePanel, type FloatingPanelId } from "./map-first/floating-controls";
 import { OverlayHeader } from "./map-first/overlay-header";
 import { RegionTimelinePanel } from "./map-first/region-timeline-panel";
+import { formatCompactNumber, formatPercent } from "~/utils";
+import type { ManifestIpcCountryOverview } from "~/data/dataset-types";
+
+function asFiniteNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 function hasCountryTiles(dataset: MapDataset, layerId: "osm_roads" | "osm_water" | "osm_settlements") {
   return dataset.countries.some((country) => Boolean(country.tileUrls[layerId]));
@@ -81,6 +89,456 @@ function summarizePopulationLayer(
       avgDensity: item.points > 0 ? (item.avgDensity ?? 0) / item.points : null,
     }))
     .sort((left, right) => right.totalWeight - left.totalWeight);
+}
+
+function readProjectedIpcMetric(
+  properties: Record<string, unknown>,
+  primaryKey: string,
+  suffixes: string[],
+): number {
+  const primaryValue = asFiniteNumber(properties[primaryKey]);
+  if (primaryValue > 0) return primaryValue;
+
+  for (const [key, value] of Object.entries(properties)) {
+    const normalized = key.toLowerCase();
+    if (suffixes.some((suffix) => normalized.endsWith(suffix))) {
+      const candidate = asFiniteNumber(value);
+      if (candidate > 0) return candidate;
+    }
+  }
+
+  return 0;
+}
+
+function buildIpcOverviewFromDataset(dataset: MapDataset | null, fallbackP3Plus = 0) {
+  const empty = {
+    totals: {
+      population: 0,
+      phase1: 0,
+      phase2: 0,
+      phase3: 0,
+      phase4: 0,
+      phase5: 0,
+      phase3plus: fallbackP3Plus,
+    },
+    topCountries: [] as Array<{
+      countryKey: string;
+      countryName: string;
+      latestYear: number | null;
+      phase3plus: number;
+      phase3plusShare: number | null;
+      phase4: number;
+      phase5: number;
+    }>,
+  };
+
+  if (!dataset?.admin.features.length) return empty;
+
+  const byCountry = new Map<string, {
+    countryKey: string;
+    countryName: string;
+    latestYear: number | null;
+    population: number;
+    phase1: number;
+    phase2: number;
+    phase3: number;
+    phase4: number;
+    phase5: number;
+    phase3plus: number;
+  }>();
+
+  for (const feature of dataset.admin.features) {
+    const properties = (feature.properties ?? {}) as Record<string, unknown>;
+    const countryName = String(properties.country_name ?? properties.adm0_name ?? "Zone");
+    const countryKey = String(properties.country_slug ?? properties.adm0_name ?? countryName);
+    const current =
+      byCountry.get(countryKey) ??
+      {
+        countryKey,
+        countryName,
+        latestYear: null,
+        population: 0,
+        phase1: 0,
+        phase2: 0,
+        phase3: 0,
+        phase4: 0,
+        phase5: 0,
+        phase3plus: 0,
+      };
+
+    const timelineYear = asFiniteNumber(properties.timeline_year);
+    if (timelineYear > 0) {
+      current.latestYear =
+        current.latestYear === null ? timelineYear : Math.max(current.latestYear, timelineYear);
+    }
+
+    current.population += readProjectedIpcMetric(properties, "ipc_population_total", ["_population"]);
+    current.phase1 += readProjectedIpcMetric(properties, "ipc_phase1", ["_phase1"]);
+    current.phase2 += readProjectedIpcMetric(properties, "ipc_phase2", ["_phase2"]);
+    current.phase3 += readProjectedIpcMetric(properties, "ipc_phase3", ["_phase3"]);
+    current.phase4 += readProjectedIpcMetric(properties, "ipc_phase4", ["_phase4"]);
+    current.phase5 += readProjectedIpcMetric(properties, "ipc_phase5", ["_phase5"]);
+    current.phase3plus += readProjectedIpcMetric(properties, "ipc_people_p3plus", ["_phase35", "_phase3plus"]);
+    byCountry.set(countryKey, current);
+  }
+
+  const countries = Array.from(byCountry.values()).map((country) => ({
+    ...country,
+    phase3plusShare: country.population > 0 ? country.phase3plus / country.population : null,
+  }));
+
+  const totals = countries.reduce(
+    (current, country) => ({
+      population: current.population + country.population,
+      phase1: current.phase1 + country.phase1,
+      phase2: current.phase2 + country.phase2,
+      phase3: current.phase3 + country.phase3,
+      phase4: current.phase4 + country.phase4,
+      phase5: current.phase5 + country.phase5,
+      phase3plus: current.phase3plus + country.phase3plus,
+    }),
+    { population: 0, phase1: 0, phase2: 0, phase3: 0, phase4: 0, phase5: 0, phase3plus: 0 },
+  );
+
+  return {
+    totals: {
+      ...totals,
+      phase3plus: totals.phase3plus > 0 ? totals.phase3plus : fallbackP3Plus,
+    },
+    topCountries: countries
+      .sort((left, right) => {
+        if (right.phase3plus !== left.phase3plus) return right.phase3plus - left.phase3plus;
+        return (right.phase3plusShare ?? 0) - (left.phase3plusShare ?? 0);
+      })
+      .slice(0, 3)
+      .map((country) => ({
+        countryKey: country.countryKey,
+        countryName: country.countryName,
+        latestYear: country.latestYear,
+        phase3plus: country.phase3plus,
+        phase3plusShare: country.phase3plusShare,
+        phase4: country.phase4,
+        phase5: country.phase5,
+      })),
+  };
+}
+
+function buildIpcOverviewFromManifestCountries(dataset: MapDataset | null, fallbackP3Plus = 0) {
+  const overviews = (dataset?.countries ?? [])
+    .map((country) => country.ipcOverview)
+    .filter((overview): overview is ManifestIpcCountryOverview => Boolean(overview));
+
+  if (!overviews.length) {
+    return null;
+  }
+
+  const countries = overviews.map((overview, index) => {
+    const population = asFiniteNumber(overview.population_total);
+    const phase3plus = asFiniteNumber(overview.phase3plus_total);
+    return {
+      countryKey: String(overview.country_key ?? dataset?.countries[index]?.slug ?? `country-${index}`),
+      countryName: String(overview.country_name ?? dataset?.countries[index]?.title ?? "Zone"),
+      latestYear:
+        typeof overview.latest_year === "number" && Number.isFinite(overview.latest_year)
+          ? overview.latest_year
+          : null,
+      population,
+      phase1: asFiniteNumber(overview.phase1_total),
+      phase2: asFiniteNumber(overview.phase2_total),
+      phase3: asFiniteNumber(overview.phase3_total),
+      phase4: asFiniteNumber(overview.phase4_total),
+      phase5: asFiniteNumber(overview.phase5_total),
+      phase3plus,
+      phase3plusShare:
+        typeof overview.phase3plus_share === "number" && Number.isFinite(overview.phase3plus_share)
+          ? overview.phase3plus_share
+          : population > 0
+            ? phase3plus / population
+            : null,
+    };
+  });
+
+  const totals = countries.reduce(
+    (current, country) => ({
+      population: current.population + country.population,
+      phase1: current.phase1 + country.phase1,
+      phase2: current.phase2 + country.phase2,
+      phase3: current.phase3 + country.phase3,
+      phase4: current.phase4 + country.phase4,
+      phase5: current.phase5 + country.phase5,
+      phase3plus: current.phase3plus + country.phase3plus,
+    }),
+    { population: 0, phase1: 0, phase2: 0, phase3: 0, phase4: 0, phase5: 0, phase3plus: 0 },
+  );
+
+  return {
+    totals: {
+      ...totals,
+      phase3plus: totals.phase3plus > 0 ? totals.phase3plus : fallbackP3Plus,
+    },
+    topCountries: countries
+      .sort((left, right) => {
+        if (right.phase3plus !== left.phase3plus) return right.phase3plus - left.phase3plus;
+        return (right.phase3plusShare ?? 0) - (left.phase3plusShare ?? 0);
+      })
+      .slice(0, 3)
+      .map((country) => ({
+        countryKey: country.countryKey,
+        countryName: country.countryName,
+        latestYear: country.latestYear,
+        phase3plus: country.phase3plus,
+        phase3plusShare: country.phase3plusShare,
+        phase4: country.phase4,
+        phase5: country.phase5,
+      })),
+  };
+}
+
+function buildIpcOverview(ipcSummary: Array<{
+  countryKey: string;
+  countryName: string;
+  latestYear: number | null;
+  population: number;
+  phase1: number;
+  phase2: number;
+  phase3: number;
+  phase4: number;
+  phase5: number;
+  phase3plus: number;
+  phase3plusShare: number | null;
+}>, fallbackP3Plus = 0) {
+  const totals = ipcSummary.reduce(
+    (current, country) => ({
+      population: current.population + country.population,
+      phase1: current.phase1 + country.phase1,
+      phase2: current.phase2 + country.phase2,
+      phase3: current.phase3 + country.phase3,
+      phase4: current.phase4 + country.phase4,
+      phase5: current.phase5 + country.phase5,
+      phase3plus: current.phase3plus + country.phase3plus,
+    }),
+    { population: 0, phase1: 0, phase2: 0, phase3: 0, phase4: 0, phase5: 0, phase3plus: 0 },
+  );
+
+  const topCountries = [...ipcSummary]
+    .sort((left, right) => {
+      if (right.phase3plus !== left.phase3plus) return right.phase3plus - left.phase3plus;
+      return (right.phase3plusShare ?? 0) - (left.phase3plusShare ?? 0);
+    })
+    .slice(0, 3);
+
+  return {
+    totals: {
+      ...totals,
+      phase3plus: totals.phase3plus > 0 ? totals.phase3plus : fallbackP3Plus,
+    },
+    topCountries,
+  };
+}
+
+function HungerSnapshotPanel({
+  open,
+  setOpen,
+  loading,
+  topCountries,
+  totals,
+}: {
+  open: boolean;
+  setOpen: (value: boolean) => void;
+  loading: boolean;
+  topCountries: Array<{
+    countryKey: string;
+    countryName: string;
+    latestYear: number | null;
+    phase3plus: number;
+    phase3plusShare: number | null;
+    phase4: number;
+    phase5: number;
+  }>;
+  totals: {
+    population: number;
+    phase1: number;
+    phase2: number;
+    phase3: number;
+    phase4: number;
+    phase5: number;
+    phase3plus: number;
+  };
+}) {
+  const activeYears = Array.from(
+    new Set(topCountries.map((country) => country.latestYear).filter((year): year is number => typeof year === "number")),
+  ).sort((left, right) => left - right);
+  const activeYearsLabel =
+    activeYears.length === 0
+      ? "Référence active selon pays"
+      : activeYears.length === 1
+        ? `Référence active ${activeYears[0]}`
+        : `Références actives ${activeYears[0]}-${activeYears[activeYears.length - 1]} selon pays`;
+  const phaseCards = [
+    { label: "IPC 1", value: totals.phase1, tone: "text-[#d7ef96]" },
+    { label: "IPC 2", value: totals.phase2, tone: "text-[#ffd45d]" },
+    { label: "IPC 3", value: totals.phase3, tone: "text-[#ffb24e]" },
+    { label: "IPC 4", value: totals.phase4, tone: "text-[#ff8d74]" },
+    { label: "IPC 5", value: totals.phase5, tone: "text-[#ff7387]" },
+  ];
+  const hasDetailedTotals =
+    totals.population > 0 ||
+    totals.phase1 > 0 ||
+    totals.phase2 > 0 ||
+    totals.phase3 > 0 ||
+    totals.phase4 > 0 ||
+    totals.phase5 > 0;
+
+  return (
+    <>
+      <div
+        className={[
+          "pointer-events-none absolute inset-x-0 bottom-0 z-[38] flex justify-end px-4 pb-4 transition-all duration-200 md:px-5 md:pb-5",
+          open ? "translate-y-3 opacity-0" : "translate-y-0 opacity-100",
+        ].join(" ")}
+      >
+        <div className="pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => setOpen(!open)}
+            className={[
+              "inline-flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-[#08131e]/92 text-sm font-semibold text-[#eef5fb] shadow-[0_18px_45px_rgba(2,6,12,0.34)] backdrop-blur-xl transition hover:bg-[#0e1c2b]/96",
+              open ? "pointer-events-none" : "",
+            ].join(" ")}
+            aria-label="Ouvrir le brief faim"
+            title="Brief faim"
+            aria-hidden={open}
+            tabIndex={open ? -1 : 0}
+          >
+            <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#d98a35]/18 text-[#ffd38b]">
+              <AlertTriangle className="h-5 w-5" />
+              <span className="absolute -right-1 -top-1 rounded-full bg-[#d98a35] px-1.5 py-0.5 text-[9px] font-black text-[#08131e]">
+                {topCountries.length || 3}
+              </span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <aside
+        className={[
+          "pointer-events-none absolute inset-x-2 bottom-2 z-[39] md:inset-x-auto md:bottom-12 md:right-4 md:top-26 md:w-[380px]",
+          open ? "" : "",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "pointer-events-auto rounded-[26px] border border-white/10 bg-[#08131e]/96 text-[#eef5fb] shadow-[0_28px_90px_rgba(2,6,12,0.42)] backdrop-blur-xl transition-all duration-300",
+            open
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-4 opacity-0",
+          ].join(" ")}
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-white/8 px-4 py-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b8e0]">
+                Afrique · Signal faim
+              </div>
+              <h3 className="mt-1 text-lg font-semibold text-[#f5efe5]">3 pays les plus en danger</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-full border border-white/10 bg-white/[0.04] p-2 text-[#d7e4ee] transition hover:bg-white/[0.08]"
+              aria-label="Fermer le panneau"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="panel-scroll max-h-[72vh] overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 md:max-h-[70vh]">
+            <div className="rounded-[22px] border border-[#d98a35]/18 bg-[linear-gradient(135deg,rgba(217,138,53,0.18),rgba(217,138,53,0.05))] p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffd38b]">
+                Donnée phare
+              </div>
+              <div className="mt-2 text-3xl font-black text-[#fff1cc]">
+                {formatCompactNumber(totals.phase3plus)}
+              </div>
+              <div className="mt-1 text-sm text-[#f2d7a6]">personnes en phase IPC 3+ sur la référence active par pays</div>
+              <div className="mt-3 text-xs text-[#c9d7e2]">
+                Population totale couverte: {formatCompactNumber(totals.population)}
+              </div>
+              <div className="mt-1 text-[11px] text-[#9db2c3]">{activeYearsLabel}</div>
+            </div>
+
+            {loading || !hasDetailedTotals ? (
+              <div className="mt-4 rounded-[22px] border border-white/8 bg-[#0c1824]/92 p-4 text-sm text-[#c9d7e2]">
+                <div className="flex items-center gap-3">
+                  <div className="map-loader h-5 w-5 rounded-full border-2 border-white/15 border-t-[#f0c170]" />
+                  <div>
+                    <div className="font-semibold text-[#eef5fb]">Brief famine en préparation</div>
+                    <div className="mt-1 text-xs text-[#93a9bb]">
+                      On charge les couches admin détaillées pour calculer les totaux IPC par phase sans afficher de faux zéros.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {phaseCards.map((phase) => (
+                    <div key={phase.label} className="rounded-2xl border border-white/8 bg-white/[0.04] px-3 py-2.5">
+                      <div className="text-[11px] uppercase tracking-[0.12em] text-[#89a1b4]">{phase.label}</div>
+                      <div className={`mt-1 text-base font-black ${phase.tone}`}>{formatCompactNumber(phase.value)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 space-y-3">
+              {topCountries.map((country, index) => (
+                <article
+                  key={country.countryKey}
+                  className="rounded-[22px] border border-white/8 bg-[#13202d]/90 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#89b8e0]">
+                        #{index + 1}
+                      </div>
+                      <h4 className="truncate text-lg font-semibold text-[#f5efe5]">{country.countryName}</h4>
+                      <p className="mt-0.5 text-xs text-[#91a8ba]">Référence {country.latestYear ?? "n/a"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[#d98a35]/28 bg-[#d98a35]/10 px-3 py-2 text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffd38b]">P3+</div>
+                      <div className="text-sm font-black text-[#ffe2aa]">{formatPercent(country.phase3plusShare)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="rounded-2xl bg-white/[0.045] px-3 py-2">
+                      <div className="text-[#8fa8bb]">P3+</div>
+                      <div className="mt-1 text-sm font-black text-[#edf5fb]">
+                        {formatCompactNumber(country.phase3plus)}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-white/[0.045] px-3 py-2">
+                      <div className="text-[#8fa8bb]">P4</div>
+                      <div className="mt-1 text-sm font-black text-[#ffb4a3]">
+                        {formatCompactNumber(country.phase4)}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-white/[0.045] px-3 py-2">
+                      <div className="text-[#8fa8bb]">P5</div>
+                      <div className="mt-1 text-sm font-black text-[#ff8aa0]">
+                        {formatCompactNumber(country.phase5)}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
+  );
 }
 
 function combinePopulationCollections(
@@ -156,6 +614,8 @@ export function MapFirstPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("flat");
   const [droneMode, setDroneMode] = useState(false);
   const [activePanel, setActivePanel] = useState<FloatingPanelId>(null);
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [activeYear, setActiveYear] = useState<number | null>(null);
   const [auth, setAuth] = useState<AuthState | null>(null);
@@ -371,9 +831,55 @@ export function MapFirstPage() {
     [dataset, activeYear],
   );
   const ipcSummary = useMemo(
-    () => (dataset ? getIpcCountrySummary(dataset, activeYear) : []),
-    [dataset, activeYear],
+    () => (displayDataset ? getIpcCountrySummary(displayDataset, activeYear) : []),
+    [displayDataset, activeYear],
   );
+  const ipcOverview = useMemo(
+    () => {
+      const fallbackP3Plus = Number(displayDataset?.summary.people_p3plus_total ?? 0);
+      const manifestOverview = buildIpcOverviewFromManifestCountries(displayDataset, fallbackP3Plus);
+      if (manifestOverview && (manifestOverview.totals.population > 0 || manifestOverview.totals.phase3plus > 0)) {
+        return manifestOverview;
+      }
+      const projectedOverview = buildIpcOverviewFromDataset(displayDataset, fallbackP3Plus);
+      if (projectedOverview.totals.population > 0 || projectedOverview.totals.phase3plus > 0) {
+        return projectedOverview;
+      }
+      return buildIpcOverview(ipcSummary, fallbackP3Plus);
+    },
+    [displayDataset, ipcSummary],
+  );
+  const hasImmediateSnapshotData = ipcOverview.totals.population > 0 || ipcOverview.totals.phase3plus > 0;
+  useEffect(() => {
+    if (!snapshotOpen || !dataset || dataset.adminHydrated || hasImmediateSnapshotData) {
+      setSnapshotLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSnapshotLoading(true);
+
+    (async () => {
+      for (const country of dataset.countries) {
+        if (cancelled) return;
+        const next = await hydrateAdminForCountry(country.slug);
+        if (cancelled || !next) continue;
+        setDataset(next);
+      }
+      if (!cancelled) {
+        setSnapshotLoading(false);
+      }
+    })().catch((error) => {
+      console.warn("[OHM] Hydratation du brief faim ignorée", error);
+      if (!cancelled) {
+        setSnapshotLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshotOpen, dataset, hasImmediateSnapshotData]);
   const populationSummary = useMemo(
     () =>
       summarizePopulationLayer(
@@ -538,6 +1044,14 @@ export function MapFirstPage() {
         timelineFallbacks={timelineFallbacks}
         ipcSummary={ipcSummary}
         populationSummary={populationSummary}
+      />
+
+      <HungerSnapshotPanel
+        open={snapshotOpen}
+        setOpen={setSnapshotOpen}
+        loading={snapshotLoading}
+        topCountries={ipcOverview.topCountries}
+        totals={ipcOverview.totals}
       />
 
       {analysisMode === "ipc" ? (

@@ -27,11 +27,26 @@ export type ManifestSummary = {
   feature_count?: number;
   score_100_mean?: number;
   people_p3plus_total?: number;
+  ipc_country_overview?: ManifestIpcCountryOverview;
   osm_counts?: Record<string, number>;
   pipeline_log?: string[];
   top_regions?: Array<Record<string, unknown>>;
   data_quality?: Record<string, unknown>;
   [key: string]: unknown;
+};
+
+export type ManifestIpcCountryOverview = {
+  country_key?: string;
+  country_name?: string;
+  latest_year?: number | null;
+  population_total?: number;
+  phase1_total?: number;
+  phase2_total?: number;
+  phase3_total?: number;
+  phase4_total?: number;
+  phase5_total?: number;
+  phase3plus_total?: number;
+  phase3plus_share?: number | null;
 };
 
 export type ManifestLike = {
@@ -164,6 +179,7 @@ export type MapDataset = {
     slug: string;
     title: string;
     manifestName: string;
+    ipcOverview?: ManifestIpcCountryOverview;
     tileUrls: Partial<Record<SupportedLayerId, string>>;
     tileSourceLayers: Partial<Record<SupportedLayerId, string>>;
     availableLayers: Partial<Record<SupportedLayerId, boolean>>;

@@ -674,6 +674,7 @@ function buildDataset(country: RuntimeCountryCatalog): MapDataset {
         slug: country.slug,
         title,
         manifestName: country.manifestName,
+        ipcOverview: country.manifest.summary?.ipc_country_overview,
         tileUrls: country.tileUrls,
         tileSourceLayers: country.tileSourceLayers,
         availableLayers: country.availableLayers,
