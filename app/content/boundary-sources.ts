@@ -70,4 +70,19 @@ export const boundarySources: BoundarySource[] = [
     source: "UNMIL",
     contributor: "OCHA Field Information Services Section (FISS)",
   },
+  {
+    location: "Uganda",
+    source: "Uganda Bureau of Statistics with support from WHO",
+    contributor: "OCHA Field Information Services Section (FISS)",
+  },
+  {
+    location: "Tanzania",
+    source: "Tanzania National Bureau of Statistics / UN OCHA ROSA",
+    contributor: "OCHA Field Information Services Section (FISS)",
+  },
+  {
+    location: "Burundi",
+    source: "IGEBU and OCHA Burundi",
+    contributor: "OCHA Field Information Services Section (FISS)",
+  }
 ];

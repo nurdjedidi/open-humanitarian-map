@@ -85,6 +85,7 @@ export type SupportedLayerId =
   | "osm_water"
   | "osm_settlements"
   | "osm_roads"
+  | "ngo_presence"
   | "population";
 
 export type AnalysisMode = "ipc" | "population";
@@ -93,7 +94,7 @@ export type ResolvedLegendItem = {
   id: SupportedLayerId;
   label: string;
   type: "choropleth" | "point" | "line" | "heatmap";
-  symbol: "fill" | "droplet" | "settlement" | "road" | "population";
+  symbol: "fill" | "droplet" | "settlement" | "road" | "population" | "ngo";
   meaning: string;
   visibleByDefault: boolean;
   color?: string;

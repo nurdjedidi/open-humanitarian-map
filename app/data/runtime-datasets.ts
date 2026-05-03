@@ -104,6 +104,7 @@ function canonicalLayerId(layerId: string | undefined): SupportedLayerId | null 
   if (layerId === "osm_water" || layerId === "osm_context_water") return "osm_water";
   if (layerId === "osm_settlements" || layerId === "osm_context_settlements") return "osm_settlements";
   if (layerId === "osm_roads" || layerId === "osm_context_roads") return "osm_roads";
+  if (layerId === "ngo_presence" || layerId === "3w_presence" || layerId === "ngo_3w") return "ngo_presence";
   if (layerId === "population" || layerId === "population_density" || layerId === "population_points") {
     return "population";
   }
@@ -114,6 +115,7 @@ function currentFileName(layerId: SupportedLayerId): string {
   if (layerId === "admin_priority") return "current.admin_priority.geojson";
   if (layerId === "osm_water") return "current.osm_water.geojson";
   if (layerId === "osm_settlements") return "current.osm_settlements.geojson";
+  if (layerId === "ngo_presence") return "current.3w_presence.geojson";
   if (layerId === "population") return "current.population.geojson";
   return "current.osm_roads.geojson";
 }
@@ -167,6 +169,11 @@ function resolveTileConfig(
         filename: "current.osm_settlements.pmtiles",
         sourceLayer: "osm_settlements",
       },
+      {
+        layerId: "ngo_presence",
+        filename: "current.3w_presence.pmtiles",
+        sourceLayer: "ngo_presence",
+      },
     ];
 
   for (const tile of conventionalTiles) {
@@ -217,37 +224,37 @@ function fallbackLegend(): ResolvedLegendItem[] {
   return [
     {
       id: "admin_priority",
-      label: "Priorité humanitaire",
+      label: "Humanitarian Priority",
       type: "choropleth",
       symbol: "fill",
-      meaning: "Gravité IPC + personnes affectées + part de population en P3+.",
+      meaning: "IPC Severity + affected people + share of population in P3+.",
       visibleByDefault: true,
       colorScale: ["#d4d4d4", "#fff7bc", "#ffd25c", "#f59123", "#de4827", "#3a080e"],
     },
     {
       id: "osm_roads",
-      label: "Routes principales",
+      label: "Main Roads",
       type: "line",
       symbol: "road",
-      meaning: "Axes de circulation principaux pour le contexte d'accès.",
+      meaning: "Main circulation axes for access context.",
       visibleByDefault: true,
       color: "#4b5563",
     },
     {
       id: "osm_water",
-      label: "Points d'eau",
+      label: "Water Points",
       type: "point",
       symbol: "droplet",
-      meaning: "Points d'eau OSM disponibles sur la zone.",
+      meaning: "OSM water points available in the area.",
       visibleByDefault: false,
       color: "#3b82f6",
     },
     {
       id: "osm_settlements",
-      label: "Lieux habités",
+      label: "Settlements",
       type: "point",
       symbol: "settlement",
-      meaning: "Villes, bourgs et villages OSM.",
+      meaning: "OSM cities, towns and villages.",
       visibleByDefault: false,
       color: "#111827",
     },
@@ -256,9 +263,18 @@ function fallbackLegend(): ResolvedLegendItem[] {
       label: "Population",
       type: "heatmap",
       symbol: "population",
-      meaning: "Densite de population derivee du raster WorldPop.",
+      meaning: "Population density derived from WorldPop raster.",
       visibleByDefault: false,
       colorScale: ["#0f172a", "#1d4ed8", "#38bdf8", "#f59e0b", "#f97316", "#fb7185"],
+    },
+    {
+      id: "ngo_presence",
+      label: "NGO Presence (3W)",
+      type: "point",
+      symbol: "ngo",
+      meaning: "NGO operational presence aggregated by administrative zone (3W source).",
+      visibleByDefault: false,
+      color: "#49dcb1",
     },
   ];
 }
@@ -500,7 +516,8 @@ function resolveLegend(manifest: ManifestLike): ResolvedLegendItem[] {
       symbol: (
         item.symbol === "road" ||
           item.symbol === "settlement" ||
-          item.symbol === "droplet"
+          item.symbol === "droplet" ||
+          item.symbol === "ngo"
           ? item.symbol
           : "fill"
       ) as ResolvedLegendItem["symbol"],
@@ -633,10 +650,11 @@ function resolveLayerDefaults(
     osm_water: false,
     osm_settlements: false,
     osm_roads: true,
+    ngo_presence: false,
     population: false,
   };
 
-  for (const layerId of ["admin_priority", "osm_water", "osm_settlements", "osm_roads", "population"] as SupportedLayerId[]) {
+  for (const layerId of ["admin_priority", "osm_water", "osm_settlements", "osm_roads", "ngo_presence", "population"] as SupportedLayerId[]) {
     const layerEntry = (manifest.layers ?? []).find(
       (layer) => canonicalLayerId(layer.id) === layerId,
     );
@@ -719,7 +737,7 @@ function combineLegend(datasets: MapDataset[]): ResolvedLegendItem[] {
       if (!seen.has(item.id)) seen.set(item.id, item);
     }
   }
-  return (["admin_priority", "osm_water", "osm_settlements", "osm_roads", "population"] as SupportedLayerId[])
+  return (["admin_priority", "osm_water", "osm_settlements", "osm_roads", "ngo_presence", "population"] as SupportedLayerId[])
     .map((id) => seen.get(id))
     .filter(Boolean) as ResolvedLegendItem[];
 }
@@ -730,6 +748,7 @@ function combineLayerDefaults(datasets: MapDataset[]): Record<SupportedLayerId, 
     osm_water: false,
     osm_settlements: false,
     osm_roads: false,
+    ngo_presence: false,
     population: false,
   };
 }

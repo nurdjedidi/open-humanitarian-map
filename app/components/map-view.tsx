@@ -60,6 +60,8 @@ type MapViewProps = {
   showWater: boolean;
   showSettlements: boolean;
   showRoads: boolean;
+  showNgoPresence: boolean;
+  ngoPeriodFilter?: string;
   populationData?: FeatureCollection | null;
   basemapId: BasemapId;
   viewMode: ViewMode;
@@ -321,6 +323,8 @@ function applyOperationalLayers(
     showRoads: boolean;
     showWater: boolean;
     showSettlements: boolean;
+    showNgoPresence: boolean;
+    ngoPeriodFilter: string;
     selectedRegionId: string | null;
     droneMode: boolean;
     labelLayerId: string | null;
@@ -329,6 +333,15 @@ function applyOperationalLayers(
   },
 ) {
   const beforeId = options.labelLayerId ?? undefined;
+  const ngoFilter =
+    options.ngoPeriodFilter && options.ngoPeriodFilter !== "all"
+      ? [
+          "any",
+          ["==", ["to-string", ["get", "ngo_period_label"]], options.ngoPeriodFilter],
+          ["==", ["to-string", ["get", "ngo_period_label"]], "unknown"],
+          ["!", ["has", "ngo_period_label"]],
+        ]
+      : undefined;
   const { slug: selectedSlug, rawId: selectedRawId } = splitSelectedRegionId(
     options.selectedRegionId,
   );
@@ -654,6 +667,158 @@ function applyOperationalLayers(
       removeLayerIfExists(map, settlementDetailId);
       removeSourceIfExists(map, settlementSourceId);
     }
+
+    const ngoTileUrl = country.tileUrls.ngo_presence;
+    const ngoSourceLayer = country.tileSourceLayers.ngo_presence ?? "ngo_presence";
+    const ngoSourceId = sourceId(country.slug, "ngo-presence");
+    const ngoFillId = layerId(country.slug, "ngo-presence-fill");
+    const ngoOutlineId = layerId(country.slug, "ngo-presence-outline");
+    if (ngoTileUrl && options.showNgoPresence) {
+      if (!map.getSource(ngoSourceId)) {
+        map.addSource(ngoSourceId, {
+          type: "vector",
+          url: `pmtiles://${ngoTileUrl}`,
+        });
+      }
+
+      removeLayerIfExists(map, ngoFillId);
+      map.addLayer(
+        {
+          id: ngoFillId,
+          type: "fill",
+          source: ngoSourceId,
+          "source-layer": ngoSourceLayer,
+          filter: ngoFilter,
+          paint: {
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["coalesce", ["to-number", ["get", "ngo_presence_count"]], 0],
+              0,
+              "rgba(73,220,177,0.00)",
+              1,
+              "rgba(73,220,177,0.22)",
+              3,
+              "rgba(52,211,153,0.34)",
+              8,
+              "rgba(16,185,129,0.48)",
+              15,
+              "rgba(5,150,105,0.62)",
+            ],
+            "fill-opacity": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              3.5,
+              0.2,
+              6,
+              0.38,
+              9,
+              0.55,
+            ],
+          },
+        },
+        beforeId,
+      );
+
+      removeLayerIfExists(map, ngoOutlineId);
+      map.addLayer(
+        {
+          id: ngoOutlineId,
+          type: "line",
+          source: ngoSourceId,
+          "source-layer": ngoSourceLayer,
+          filter: ngoFilter,
+          paint: {
+            "line-color": "#2dd4bf",
+            "line-opacity": [
+              "case",
+              [">", ["coalesce", ["to-number", ["get", "ngo_presence_count"]], 0], 0],
+              0.7,
+              0,
+            ],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 3.5, 0.35, 8, 1.2, 12, 1.8],
+          },
+        },
+        beforeId,
+      );
+    } else {
+      removeLayerIfExists(map, ngoFillId);
+      removeLayerIfExists(map, ngoOutlineId);
+      removeSourceIfExists(map, ngoSourceId);
+    }
+  }
+
+  // GeoJSON fallback when country PMTiles are not available.
+  const ngoSourceId = sourceId("global", "ngo-presence");
+  const ngoFillId = layerId("global", "ngo-presence-fill");
+  const ngoOutlineId = layerId("global", "ngo-presence-outline");
+  if (options.showNgoPresence && dataset.layers.ngo_presence?.features?.length) {
+    upsertGeoJsonSource(map, ngoSourceId, dataset.layers.ngo_presence);
+
+    removeLayerIfExists(map, ngoFillId);
+      map.addLayer(
+        {
+          id: ngoFillId,
+          type: "fill",
+          source: ngoSourceId,
+          filter: ngoFilter,
+          paint: {
+          "fill-color": [
+            "interpolate",
+            ["linear"],
+            ["coalesce", ["to-number", ["get", "ngo_presence_count"]], 0],
+            0,
+            "rgba(73,220,177,0.00)",
+            1,
+            "rgba(73,220,177,0.22)",
+            3,
+            "rgba(52,211,153,0.34)",
+            8,
+            "rgba(16,185,129,0.48)",
+            15,
+            "rgba(5,150,105,0.62)",
+          ],
+          "fill-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            3.5,
+            0.2,
+            6,
+            0.38,
+            9,
+            0.55,
+          ],
+        },
+      },
+      beforeId,
+    );
+
+    removeLayerIfExists(map, ngoOutlineId);
+      map.addLayer(
+        {
+          id: ngoOutlineId,
+          type: "line",
+          source: ngoSourceId,
+          filter: ngoFilter,
+          paint: {
+            "line-color": "#2dd4bf",
+            "line-opacity": [
+              "case",
+              [">", ["coalesce", ["to-number", ["get", "ngo_presence_count"]], 0], 0],
+              0.7,
+              0,
+            ],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 3.5, 0.35, 8, 1.2, 12, 1.8],
+          },
+        },
+        beforeId,
+      );
+  } else {
+    removeLayerIfExists(map, ngoFillId);
+    removeLayerIfExists(map, ngoOutlineId);
+    removeSourceIfExists(map, ngoSourceId);
   }
 
   if (options.contributions) {
@@ -775,6 +940,8 @@ export function MapView({
   showWater,
   showSettlements,
   showRoads,
+  showNgoPresence,
+  ngoPeriodFilter = "all",
   populationData,
   basemapId,
   viewMode,
@@ -801,6 +968,8 @@ export function MapView({
     showRoads,
     showWater,
     showSettlements,
+    showNgoPresence,
+    ngoPeriodFilter,
     basemapId,
     viewMode,
     droneMode,
@@ -829,6 +998,8 @@ export function MapView({
       showRoads,
       showWater,
       showSettlements,
+      showNgoPresence,
+      ngoPeriodFilter,
       basemapId,
       viewMode,
       droneMode,
@@ -845,6 +1016,8 @@ export function MapView({
     selectedRegionId,
     showRoads,
     showSettlements,
+    showNgoPresence,
+    ngoPeriodFilter,
     showWater,
     viewMode,
   ]);
@@ -908,6 +1081,8 @@ export function MapView({
           showRoads: currentState.showRoads,
           showWater: currentState.showWater,
           showSettlements: currentState.showSettlements,
+          showNgoPresence: currentState.showNgoPresence,
+          ngoPeriodFilter: currentState.ngoPeriodFilter,
           selectedRegionId: currentState.selectedRegionId,
           droneMode: currentState.droneMode,
           labelLayerId: nextLabelLayerId,
@@ -980,12 +1155,18 @@ export function MapView({
           layerId(country.slug, "settlements-detail"),
         ]);
         const contributionLayerId = layerId("contributions", "points");
+        const ngoLayerIds = currentDataset.countries.flatMap((country) => [
+          layerId(country.slug, "ngo-presence-fill"),
+          layerId(country.slug, "ngo-presence-outline"),
+        ]);
+        ngoLayerIds.push(layerId("global", "ngo-presence-fill"));
 
         const features = map.queryRenderedFeatures(event.point, {
           layers: [
             ...adminLayerIds,
             ...waterLayerIds,
             ...settlementLayerIds,
+            ...ngoLayerIds,
             contributionLayerId,
           ].filter((id) => safeHasLayer(map, id)),
         }) as MapGeoJSONFeature[];
@@ -1050,6 +1231,20 @@ export function MapView({
             title: String(feature.properties?.name ?? t("demo.settlements")),
             badges: [t("demo.settlements")],
             accent: "slate",
+          });
+          setTooltipPosition({ x: event.point.x, y: event.point.y });
+          return;
+        }
+
+        if (feature.layer.id.includes("ngo-presence")) {
+          const presence = Number(feature.properties?.ngo_presence_count ?? 0);
+          const orgs = Number(feature.properties?.ngo_org_count ?? 0);
+          setDetail({
+            kind: "osm",
+            id: `${sourceSlug}-ngo-presence`,
+            title: String(feature.properties?.region_name ?? feature.properties?.adm2_name ?? "Presence ONG"),
+            badges: [`3W: ${formatCompactNumber(presence)} activites`, `${formatCompactNumber(orgs)} organisations`],
+            accent: "green",
           });
           setTooltipPosition({ x: event.point.x, y: event.point.y });
           return;
@@ -1316,6 +1511,8 @@ export function MapView({
       showRoads,
       showWater,
       showSettlements,
+      showNgoPresence,
+      ngoPeriodFilter,
       selectedRegionId,
       droneMode,
       labelLayerId,
@@ -1346,6 +1543,8 @@ export function MapView({
     selectedRegionId,
     showRoads,
     showSettlements,
+    showNgoPresence,
+    ngoPeriodFilter,
     showWater,
     viewMode,
   ]);

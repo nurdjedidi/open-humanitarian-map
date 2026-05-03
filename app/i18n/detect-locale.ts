@@ -1,6 +1,6 @@
 export type Locale = "fr" | "en";
 
-export const DEFAULT_LOCALE: Locale = "fr";
+export const DEFAULT_LOCALE: Locale = "en";
 export const SUPPORTED_LOCALES: Locale[] = ["fr", "en"];
 export const LOCALE_STORAGE_KEY = "ohm-locale";
 
@@ -13,10 +13,9 @@ export function normalizeLocale(input: string | null | undefined): Locale | null
 }
 
 export function detectBrowserLocale(): Locale {
-  if (typeof window === "undefined") {
-    return DEFAULT_LOCALE;
-  }
-  return normalizeLocale(window.navigator.language) ?? DEFAULT_LOCALE;
+  // Toujours retourner anglais par défaut comme demandé par l'utilisateur, 
+  // ignorant la langue du navigateur pour le premier chargement.
+  return DEFAULT_LOCALE;
 }
 
 export function readStoredLocale(): Locale | null {

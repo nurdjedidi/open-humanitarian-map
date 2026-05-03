@@ -327,9 +327,14 @@ function PanelContent({
   showRoads,
   showWater,
   showSettlements,
+  showNgoPresence,
   setShowRoads,
   setShowWater,
   setShowSettlements,
+  setShowNgoPresence,
+  ngoPeriods,
+  ngoPeriodFilter,
+  setNgoPeriodFilter,
   basemapId,
   setBasemapId,
   viewMode,
@@ -353,9 +358,14 @@ function PanelContent({
   showRoads: boolean;
   showWater: boolean;
   showSettlements: boolean;
+  showNgoPresence: boolean;
   setShowRoads: (value: boolean) => void;
   setShowWater: (value: boolean) => void;
   setShowSettlements: (value: boolean) => void;
+  setShowNgoPresence: (value: boolean) => void;
+  ngoPeriods: string[];
+  ngoPeriodFilter: string;
+  setNgoPeriodFilter: (value: string) => void;
   basemapId: BasemapId;
   setBasemapId: (value: BasemapId) => void;
   viewMode: ViewMode;
@@ -376,18 +386,7 @@ function PanelContent({
 
   return (
     <>
-      <div className="mb-2 flex items-center justify-between gap-3 px-1 md:mb-3">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">
-          {activePanel === "layers"
-            ? t("demo.layers")
-            : activePanel === "basemap"
-              ? t("demo.basemap")
-              : activePanel === "legend"
-                ? t("demo.legend")
-                : analysisMode === "population"
-                  ? "Population"
-                  : "IPC"}
-        </div>
+      <div className="mb-2 flex items-center justify-end px-1 md:mb-3">
         <button
           type="button"
           onClick={() => setActivePanel(null)}
@@ -398,7 +397,8 @@ function PanelContent({
       </div>
 
       {activePanel === "layers" ? (
-        <PanelSection title={t("demo.layers")}>
+        <div className="space-y-4">
+          <PanelSection title={t("demo.analysis")}>
           <div className="mb-3 flex overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-1">
             <button
               type="button"
@@ -445,6 +445,38 @@ function PanelContent({
             <ToggleRow label={t("demo.roads")} checked={showRoads} onChange={setShowRoads} />
             <ToggleRow label={t("demo.water")} checked={showWater} onChange={setShowWater} />
             <ToggleRow label={t("demo.settlements")} checked={showSettlements} onChange={setShowSettlements} />
+            
+            <ToggleRow label={t("demo.ngoPresence")} checked={showNgoPresence} onChange={setShowNgoPresence} />
+            {showNgoPresence && (
+              <div className="mt-2 space-y-3 rounded-2xl bg-white/[0.03] p-3 border border-white/5">
+                <div className="flex items-center justify-between">
+                   <div className="text-[10px] font-bold uppercase tracking-wider text-[#49dcb1]">{t("demo.ngoReportingPeriod")}</div>
+                   <div className="text-[10px] font-medium text-[#8ea7bb]">{ngoPeriodFilter || "Toutes"}</div>
+                </div>
+                
+                {ngoPeriods.length > 1 ? (
+                  <input
+                    type="range"
+                    min="0"
+                    max={ngoPeriods.length - 1}
+                    step="1"
+                    value={ngoPeriods.indexOf(ngoPeriodFilter)}
+                    onChange={(e) => {
+                      const idx = parseInt(e.target.value, 10);
+                      if (ngoPeriods[idx]) setNgoPeriodFilter(ngoPeriods[idx]);
+                    }}
+                    className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-white/10 accent-[#49dcb1]"
+                  />
+                ) : (
+                  <div className="text-[10px] text-[#7f98ab] italic">{t("demo.ngoSinglePeriod")}</div>
+                )}
+                
+                <div className="flex justify-between px-1 text-[9px] font-medium text-[#7f98ab]">
+                   <span>{ngoPeriods[0]}</span>
+                   <span>{ngoPeriods[ngoPeriods.length - 1]}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="mt-3 hidden text-sm leading-6 text-[#96abbb] md:block">
@@ -458,6 +490,7 @@ function PanelContent({
               : t("demo.population2020Note")}
           </p>
         </PanelSection>
+      </div>
       ) : null}
 
       {activePanel === "basemap" ? (
@@ -486,20 +519,20 @@ function PanelContent({
           </div>
 
           <div className="border-t border-white/8 pt-4">
-            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">Mode de vue</div>
+            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#85b8e5]">{t("demo.viewMode")}</div>
             <div className="grid gap-2">
               {[
                 {
                   id: "flat" as const,
                   icon: Layers3,
-                  label: "Vue d'ensemble",
-                  description: "Lecture plane et stable a grande echelle",
+                  label: t("demo.viewModeFlat"),
+                  description: t("demo.viewModeFlatDesc"),
                 },
                 {
                   id: "urban-3d" as const,
                   icon: Building2,
-                  label: "3D",
-                  description: "Zoom fort et batiments extrudes si disponibles",
+                  label: t("demo.viewMode3d"),
+                  description: t("demo.viewMode3dDesc"),
                 },
               ].map((mode) => {
                 const Icon = mode.icon;
@@ -545,8 +578,8 @@ function PanelContent({
               >
                 <Plane className="mt-0.5 h-4 w-4 shrink-0" />
                 <div>
-                  <div className="font-semibold">Drone</div>
-                  <div className="text-xs text-[#8ea7bb]">Vue inclinee et zoom rapproche. Peut se combiner avec le mode 3D.</div>
+                  <div className="font-semibold">{t("demo.droneMode")}</div>
+                  <div className="text-xs text-[#8ea7bb]">{t("demo.droneModeDesc")}</div>
                 </div>
               </button>
             </div>
@@ -566,19 +599,22 @@ function PanelContent({
 
       {activePanel === "ipc" ? (
         analysisMode === "population" ? (
-          <PanelSection title="Mode population">
-            <div className="mb-3 rounded-2xl border border-[#c084fc]/20 bg-[#c084fc]/10 px-3 py-2.5 text-xs leading-5 text-[#ead6ff]">
-              Lecture derivee du raster population. Le glow montre les concentrations larges, puis les points prennent le
-              relai au zoom.
+          <PanelSection title={t("demo.populationMode")}>
+            <div className="space-y-3">
+              <div className="mb-3 rounded-2xl border border-[#c084fc]/20 bg-[#c084fc]/10 px-3 py-2.5 text-xs leading-5 text-[#ead6ff]">
+                {t("demo.populationModeDesc")}
+              </div>
+              <PopulationSummaryPanel populationSummary={populationSummary} />
             </div>
-            <PopulationSummaryPanel populationSummary={populationSummary} />
           </PanelSection>
         ) : (
-          <PanelSection title="Population par phase IPC">
-            <div className="mb-3 rounded-2xl border border-[#d98a35]/20 bg-[#d98a35]/10 px-3 py-2.5 text-xs leading-5 text-[#f0d6a5]">
-              Aggregation par pays sur l'annee active. P3+ = IPC 3 + IPC 4 + IPC 5.
+          <PanelSection title={t("demo.ipcPhaseMode")}>
+            <div className="space-y-3">
+              <div className="mb-3 rounded-2xl border border-[#d98a35]/20 bg-[#d98a35]/10 px-3 py-2.5 text-xs leading-5 text-[#f0d6a5]">
+                {t("demo.ipcPhaseModeDesc")}
+              </div>
+              <IpcSummaryPanel ipcSummary={ipcSummary} />
             </div>
-            <IpcSummaryPanel ipcSummary={ipcSummary} />
           </PanelSection>
         )
       ) : null}
@@ -594,9 +630,14 @@ export function FloatingSidePanel({
   showRoads,
   showWater,
   showSettlements,
+  showNgoPresence,
   setShowRoads,
   setShowWater,
   setShowSettlements,
+  setShowNgoPresence,
+  ngoPeriods,
+  ngoPeriodFilter,
+  setNgoPeriodFilter,
   basemapId,
   setBasemapId,
   viewMode,
@@ -620,9 +661,14 @@ export function FloatingSidePanel({
   showRoads: boolean;
   showWater: boolean;
   showSettlements: boolean;
+  showNgoPresence: boolean;
   setShowRoads: (value: boolean) => void;
   setShowWater: (value: boolean) => void;
   setShowSettlements: (value: boolean) => void;
+  setShowNgoPresence: (value: boolean) => void;
+  ngoPeriods: string[];
+  ngoPeriodFilter: string;
+  setNgoPeriodFilter: (value: string) => void;
   basemapId: BasemapId;
   setBasemapId: (value: BasemapId) => void;
   viewMode: ViewMode;
@@ -649,9 +695,14 @@ export function FloatingSidePanel({
     showRoads,
     showWater,
     showSettlements,
+    showNgoPresence,
     setShowRoads,
     setShowWater,
     setShowSettlements,
+    setShowNgoPresence,
+    ngoPeriods,
+    ngoPeriodFilter,
+    setNgoPeriodFilter,
     basemapId,
     setBasemapId,
     viewMode,

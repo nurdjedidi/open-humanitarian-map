@@ -18,8 +18,6 @@ import {
   getIpcCountrySummary,
   getRegionDetail,
   hydrateAdminForCountry,
-  loadCountryLayer,
-  loadCombinedLayer,
   getTimelineFallbackSummary,
   getTimelineYears,
   loadCombinedDatasetProgressive,
@@ -37,9 +35,6 @@ function asFiniteNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function hasCountryTiles(dataset: MapDataset, layerId: "osm_roads" | "osm_water" | "osm_settlements") {
-  return dataset.countries.some((country) => Boolean(country.tileUrls[layerId]));
-}
 
 function slugFromFeatureId(featureId: string | null | undefined): string | null {
   if (!featureId) return null;
@@ -365,15 +360,16 @@ function HungerSnapshotPanel({
     phase3plus: number;
   };
 }) {
+  const { t } = useI18n();
   const activeYears = Array.from(
     new Set(topCountries.map((country) => country.latestYear).filter((year): year is number => typeof year === "number")),
   ).sort((left, right) => left - right);
   const activeYearsLabel =
     activeYears.length === 0
-      ? "Référence active selon pays"
+      ? t("demo.alertActiveRefByCountry")
       : activeYears.length === 1
-        ? `Référence active ${activeYears[0]}`
-        : `Références actives ${activeYears[0]}-${activeYears[activeYears.length - 1]} selon pays`;
+        ? t("demo.alertActiveRefSingle", { year: activeYears[0] })
+        : t("demo.alertActiveRefRange", { start: activeYears[0], end: activeYears[activeYears.length - 1] });
   const phaseCards = [
     { label: "IPC 1", value: totals.phase1, tone: "text-[#d7ef96]" },
     { label: "IPC 2", value: totals.phase2, tone: "text-[#ffd45d]" },
@@ -437,9 +433,9 @@ function HungerSnapshotPanel({
           <div className="flex items-start justify-between gap-3 border-b border-white/8 px-4 py-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b8e0]">
-                Afrique · Signal faim
+                {t("demo.alertPanelBadge")}
               </div>
-              <h3 className="mt-1 text-lg font-semibold text-[#f5efe5]">3 pays les plus en danger</h3>
+              <h3 className="mt-1 text-lg font-semibold text-[#f5efe5]">{t("demo.alertPanelTitle")}</h3>
             </div>
             <button
               type="button"
@@ -454,14 +450,14 @@ function HungerSnapshotPanel({
           <div className="panel-scroll max-h-[72vh] overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 md:max-h-[70vh]">
             <div className="rounded-[22px] border border-[#d98a35]/18 bg-[linear-gradient(135deg,rgba(217,138,53,0.18),rgba(217,138,53,0.05))] p-4">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffd38b]">
-                Donnée phare
+                {t("demo.alertKeyData")}
               </div>
               <div className="mt-2 text-3xl font-black text-[#fff1cc]">
                 {formatCompactNumber(totals.phase3plus)}
               </div>
-              <div className="mt-1 text-sm text-[#f2d7a6]">personnes en phase IPC 3+ sur la référence active par pays</div>
+              <div className="mt-1 text-sm text-[#f2d7a6]">{t("demo.alertP3PlusContext")}</div>
               <div className="mt-3 text-xs text-[#c9d7e2]">
-                Population totale couverte: {formatCompactNumber(totals.population)}
+                {t("demo.alertTotalPop")}: {formatCompactNumber(totals.population)}
               </div>
               <div className="mt-1 text-[11px] text-[#9db2c3]">{activeYearsLabel}</div>
             </div>
@@ -471,9 +467,9 @@ function HungerSnapshotPanel({
                 <div className="flex items-center gap-3">
                   <div className="map-loader h-5 w-5 rounded-full border-2 border-white/15 border-t-[#f0c170]" />
                   <div>
-                    <div className="font-semibold text-[#eef5fb]">Brief famine en préparation</div>
+                    <div className="font-semibold text-[#eef5fb]">{t("demo.alertLoadingTitle")}</div>
                     <div className="mt-1 text-xs text-[#93a9bb]">
-                      On charge les couches admin détaillées pour calculer les totaux IPC par phase sans afficher de faux zéros.
+                      {t("demo.alertLoadingBody")}
                     </div>
                   </div>
                 </div>
@@ -501,7 +497,7 @@ function HungerSnapshotPanel({
                         #{index + 1}
                       </div>
                       <h4 className="truncate text-lg font-semibold text-[#f5efe5]">{country.countryName}</h4>
-                      <p className="mt-0.5 text-xs text-[#91a8ba]">Référence {country.latestYear ?? "n/a"}</p>
+                      <p className="mt-0.5 text-xs text-[#91a8ba]">{t("demo.alertReference")} {country.latestYear ?? "n/a"}</p>
                     </div>
                     <div className="rounded-2xl border border-[#d98a35]/28 bg-[#d98a35]/10 px-3 py-2 text-right">
                       <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffd38b]">P3+</div>
@@ -566,7 +562,7 @@ function AppLoader() {
               Open Humanitarian Map
             </p>
             <h1 className="truncate text-sm font-extrabold text-[#f4f8fc] md:text-lg">
-              West Africa priority map
+              {t("demo.mainTitle")}
             </h1>
           </div>
         </div>
@@ -609,6 +605,8 @@ export function MapFirstPage() {
   const [showWater, setShowWater] = useState(false);
   const [showSettlements, setShowSettlements] = useState(false);
   const [showRoads, setShowRoads] = useState(true);
+  const [showNgoPresence, setShowNgoPresence] = useState(false);
+  const [ngoPeriodFilter, setNgoPeriodFilter] = useState<string>("");
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("ipc");
   const [basemapId, setBasemapId] = useState<BasemapId>("voyager");
   const [viewMode, setViewMode] = useState<ViewMode>("flat");
@@ -630,10 +628,13 @@ export function MapFirstPage() {
   const [visibleCountrySlugs, setVisibleCountrySlugs] = useState<string[]>([]);
   const [populationByCountry, setPopulationByCountry] = useState<Record<string, FeatureCollection>>({});
   const [populationLoading, setPopulationLoading] = useState(false);
+  const [ngoPresenceByCountry, setNgoPresenceByCountry] = useState<Record<string, FeatureCollection>>({});
+  const [ngoLoading, setNgoLoading] = useState(false);
   const contextLayerStateRef = useRef({
     showRoads: true,
     showWater: false,
     showSettlements: false,
+    showNgoPresence: false,
   });
   const datasetPopulationSlugs = useMemo(
     () =>
@@ -694,88 +695,11 @@ export function MapFirstPage() {
     void refreshContributions();
   }, []);
 
-  useEffect(() => {
-    if (!dataset || !isDatasetComplete) return;
-    const requestedLayers = [
-      showRoads && !dataset.layers.osm_roads && !hasCountryTiles(dataset, "osm_roads")
-        ? "osm_roads"
-        : null,
-      showWater && !dataset.layers.osm_water && !hasCountryTiles(dataset, "osm_water")
-        ? "osm_water"
-        : null,
-      showSettlements &&
-      !dataset.layers.osm_settlements &&
-      !hasCountryTiles(dataset, "osm_settlements")
-        ? "osm_settlements"
-        : null,
-    ].filter(Boolean) as Array<"osm_roads" | "osm_water" | "osm_settlements">;
-    if (!requestedLayers.length) return;
+  // Contextual layers (roads, water, settlements) are now exclusively handled via PMTiles in MapView.
+  // We no longer load their GeoJSON counterparts to avoid performance degradation.
 
-    let cancelled = false;
-    Promise.all(
-      requestedLayers.map((layerId) =>
-        loadCombinedLayer(layerId).then((collection) => [layerId, collection] as const),
-      ),
-    )
-      .then((loadedLayers) => {
-        if (cancelled) return;
-        setDataset((current) => {
-          if (!current) return current;
-          return {
-            ...current,
-            layers: {
-              ...current.layers,
-              ...Object.fromEntries(loadedLayers),
-            },
-          };
-        });
-      })
-      .catch((error) => {
-        console.warn("[OHM] Couche OSM non chargee", error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [dataset, isDatasetComplete, showRoads, showWater, showSettlements]);
-
-  useEffect(() => {
-    if (!dataset || !isDatasetComplete || analysisMode !== "population" || !populationTargetSlugs.length) {
-      setPopulationLoading(false);
-      return;
-    }
-
-    const missing = populationTargetSlugs.filter((slug) => !populationByCountry[slug]);
-    if (!missing.length) {
-      setPopulationLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setPopulationLoading(true);
-    Promise.all(missing.map((slug) => loadCountryLayer(slug, "population").then((collection) => [slug, collection] as const)))
-      .then((entries) => {
-        if (cancelled) return;
-        setPopulationByCountry((current) => {
-          const next = { ...current };
-          for (const [slug, collection] of entries) {
-            if (collection) next[slug] = collection;
-          }
-          return next;
-        });
-        setPopulationLoading(false);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setPopulationLoading(false);
-        }
-        console.warn("[OHM] Couche population non chargee", error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [analysisMode, dataset, isDatasetComplete, populationByCountry, populationTargetSlugs]);
+  // Population layer is also handled via PMTiles for rendering.
+  // Aggregated summaries will rely on manifest metadata or PMTiles-based querying in the future.
 
   useEffect(() => {
     if (!dataset || !selectedRegionId) return;
@@ -889,6 +813,7 @@ export function MapFirstPage() {
       ),
     [populationByCountry, populationTargetSlugs],
   );
+
   const populationOverlay = useMemo(
     () =>
       combinePopulationCollections(
@@ -896,6 +821,124 @@ export function MapFirstPage() {
       ),
     [populationByCountry, populationTargetSlugs],
   );
+
+  useEffect(() => {
+    if (analysisMode !== "population" || !dataset) return;
+
+    const countriesToLoad = dataset.countries.filter(
+      (c) => c.availableLayers.population && !populationByCountry[c.slug],
+    );
+    if (!countriesToLoad.length) return;
+
+    let cancelled = false;
+    setPopulationLoading(true);
+
+    (async () => {
+      const { loadCountryLayer } = await import("~/data/runtime-datasets");
+      const results = await Promise.all(
+        countriesToLoad.map(async (country) => {
+          try {
+            const geojson = await loadCountryLayer(country.slug, "population");
+            return { slug: country.slug, geojson };
+          } catch (e) {
+            console.warn(`[OHM] Echec du chargement population: ${country.slug}`, e);
+            return { slug: country.slug, geojson: null };
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setPopulationByCountry((prev) => {
+        const next = { ...prev };
+        for (const res of results) {
+          if (res.geojson) next[res.slug] = res.geojson;
+        }
+        return next;
+      });
+      setPopulationLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisMode, dataset, populationByCountry]);
+
+  useEffect(() => {
+    if (!showNgoPresence || !dataset) return;
+    
+    const countriesToLoad = dataset.countries.filter(c => !ngoPresenceByCountry[c.slug]);
+    if (!countriesToLoad.length) return;
+
+    let cancelled = false;
+    setNgoLoading(true);
+
+    (async () => {
+      const results = await Promise.all(
+        countriesToLoad.map(async (country) => {
+          try {
+            const data = await hydrateAdminForCountry(country.slug); // Using hydrateAdmin as proxy for general hydration if needed
+            // Actually we have loadCountryLayer in runtime-datasets.ts
+            const { loadCountryLayer } = await import("~/data/runtime-datasets");
+            const geojson = await loadCountryLayer(country.slug, "ngo_presence");
+            return { slug: country.slug, geojson };
+          } catch (e) {
+            return { slug: country.slug, geojson: null };
+          }
+        })
+      );
+
+      if (cancelled) return;
+      
+      setNgoPresenceByCountry(prev => {
+        const next = { ...prev };
+        for (const res of results) {
+          if (res.geojson) next[res.slug] = res.geojson;
+        }
+        return next;
+      });
+      setNgoLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [showNgoPresence, dataset, ngoPresenceByCountry]);
+
+  const ngoPeriods = useMemo(() => {
+    const features = Object.values(ngoPresenceByCountry).flatMap(fc => fc.features);
+    if (!features.length) return [];
+    const labels = new Set<string>();
+    for (const feature of features) {
+      const label = String(feature.properties?.ngo_period_label ?? "").trim();
+      if (label) labels.add(label);
+    }
+    const values = Array.from(labels);
+    values.sort((left, right) => {
+      const parse = (input: string) => {
+        const yyyymm = /^(\d{4})-(\d{2})$/.exec(input);
+        if (yyyymm) return Number(yyyymm[1]) * 100 + Number(yyyymm[2]);
+        const yyyy = /^(\d{4})$/.exec(input);
+        if (yyyy) return Number(yyyy[1]) * 100;
+        return -1;
+      };
+      return parse(left) - parse(right);
+    });
+    return values;
+  }, [ngoPresenceByCountry]);
+
+  useEffect(() => {
+    if (!ngoPeriods.length) {
+      if (ngoPeriodFilter !== "all" && ngoPeriodFilter !== "") setNgoPeriodFilter("all");
+      return;
+    }
+    const latest = ngoPeriods[ngoPeriods.length - 1];
+    if (ngoPeriodFilter === "") {
+      setNgoPeriodFilter(latest);
+      return;
+    }
+    if (ngoPeriodFilter !== "all" && !ngoPeriods.includes(ngoPeriodFilter)) {
+      setNgoPeriodFilter(latest);
+    }
+  }, [ngoPeriodFilter, ngoPeriods]);
 
   const changeAnalysisMode = (nextMode: AnalysisMode) => {
     if (nextMode === analysisMode) return;
@@ -908,10 +951,12 @@ export function MapFirstPage() {
         showRoads,
         showWater,
         showSettlements,
+        showNgoPresence,
       };
       setShowRoads(false);
       setShowWater(false);
       setShowSettlements(false);
+      setShowNgoPresence(false);
       setSelectedRegionId(null);
       setActivePanel(null);
       const targetSlugs = datasetPopulationSlugs.filter((slug) => !populationByCountry[slug]);
@@ -925,6 +970,7 @@ export function MapFirstPage() {
     setShowRoads(contextLayerStateRef.current.showRoads);
     setShowWater(contextLayerStateRef.current.showWater);
     setShowSettlements(contextLayerStateRef.current.showSettlements);
+    setShowNgoPresence(contextLayerStateRef.current.showNgoPresence);
   };
 
   const setTypeAndDefaultValue = (nextType: ContributionType) => {
@@ -992,6 +1038,8 @@ export function MapFirstPage() {
           showRoads={showRoads}
           showWater={showWater}
           showSettlements={showSettlements}
+          showNgoPresence={showNgoPresence}
+          ngoPeriodFilter={ngoPeriodFilter}
           populationData={populationOverlay}
           basemapId={basemapId}
           viewMode={viewMode}
@@ -1024,9 +1072,14 @@ export function MapFirstPage() {
         showRoads={showRoads}
         showWater={showWater}
         showSettlements={showSettlements}
+        showNgoPresence={showNgoPresence}
         setShowRoads={setShowRoads}
         setShowWater={setShowWater}
         setShowSettlements={setShowSettlements}
+        setShowNgoPresence={setShowNgoPresence}
+        ngoPeriods={ngoPeriods}
+        ngoPeriodFilter={ngoPeriodFilter}
+        setNgoPeriodFilter={setNgoPeriodFilter}
         basemapId={basemapId}
         setBasemapId={setBasemapId}
         viewMode={viewMode}
