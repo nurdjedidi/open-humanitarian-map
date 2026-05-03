@@ -25,6 +25,31 @@ function SourcesContent() {
 
       <section className="pt-4">
         <div className="mb-4">
+          <h2 className="text-xl font-black text-white">Sources donnees IPC</h2>
+          <p className="mt-2 text-sm leading-6 text-[#9fb2c2]">
+            Attribution explicite des donnees de securite alimentaire utilisees dans les couches et indicateurs IPC.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <article className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_16px_45px_rgba(0,0,0,0.16)]">
+            <h3 className="text-lg font-black text-[#f6efe6]">IPC Senegal (ipc-sen)</h3>
+            <dl className="mt-3 space-y-3 text-sm leading-6">
+              <div>
+                <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#85b8e5]">Source</dt>
+                <dd className="mt-1 text-[#d7e4ee]">National IPC Technical Working Group</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#85b8e5]">Contributor</dt>
+                <dd className="mt-1 text-[#b9c9d6]">Integrated Food Security Phase Classification (IPC)</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section className="pt-4">
+        <div className="mb-4">
           <h2 className="text-xl font-black text-white">Sources des limites administratives</h2>
           <p className="mt-2 text-sm leading-6 text-[#9fb2c2]">
             Detail par pays des sources et contributeurs utilises pour les boundaries OHM.

@@ -428,13 +428,16 @@ function decorateAdmin(admin: FeatureCollection): FeatureCollection {
         asString(properties.adm3_pcode) ||
         asString(properties.adm2_pcode) ||
         asString(properties.adm1_pcode) ||
-        `${asString(properties.adm3_name || properties.adm2_name || properties.adm1_name || properties.name || "region")}-${index}`;
+        `${asString(properties.adm3_name || properties.adm3_en || properties.adm2_name || properties.adm2_en || properties.adm1_name || properties.adm1_en || properties.name || "region")}-${index}`;
 
       properties.feature_id = id;
       properties.region_name = asString(
         properties.adm3_name ||
+        properties.adm3_en ||
         properties.adm2_name ||
+        properties.adm2_en ||
         properties.adm1_name ||
+        properties.adm1_en ||
         properties.admin_name ||
         properties.name,
         "Zone inconnue",
@@ -522,10 +525,10 @@ function regionRecordFromFeature(feature: Feature<Geometry, GeoJsonProperties>):
   return {
     id: asString(props.feature_id),
     name: asString(
-      props.region_name || props.adm3_name || props.adm2_name || props.adm1_name || props.name,
+      props.region_name || props.adm3_name || props.adm3_en || props.adm2_name || props.adm2_en || props.adm1_name || props.adm1_en || props.name,
       "Zone inconnue",
     ),
-    adm1Name: asString(props.adm1_name, "n/a"),
+    adm1Name: asString(props.adm1_name || props.adm1_en, "n/a"),
     priorityScore: asNumber(props.priority_score ?? props.score),
     score100: asNumber(props.score_100),
     priorityLabel: asString(props.priority_label || props.status, "n/a"),

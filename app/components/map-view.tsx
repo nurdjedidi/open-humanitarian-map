@@ -117,12 +117,17 @@ function buildRegionRecordFromProperties(
     name:
       (typeof props.region_name === "string" && props.region_name) ||
       (typeof props.adm3_name === "string" && props.adm3_name) ||
+      (typeof props.adm3_en === "string" && props.adm3_en) ||
       (typeof props.adm2_name === "string" && props.adm2_name) ||
+      (typeof props.adm2_en === "string" && props.adm2_en) ||
       (typeof props.adm1_name === "string" && props.adm1_name) ||
+      (typeof props.adm1_en === "string" && props.adm1_en) ||
       (typeof props.name === "string" && props.name) ||
       "Zone inconnue",
     adm1Name:
-      (typeof props.adm1_name === "string" && props.adm1_name) || "n/a",
+      (typeof props.adm1_name === "string" && props.adm1_name) ||
+      (typeof props.adm1_en === "string" && props.adm1_en) ||
+      "n/a",
     priorityScore: safeNumber(props.priority_score ?? props.score),
     score100: safeNumber(props.score_100),
     priorityLabel:
