@@ -76,10 +76,10 @@ type MapViewProps = {
   onVisibleCountriesChange?: (slugs: string[]) => void;
 };
 
-const INITIAL_ZOOM = 4.55;
+const INITIAL_ZOOM = 3.1;
 const INITIAL_BOUNDS: [[number, number], [number, number]] = [
-  [-19.5, 2.0],
-  [30.5, 28.5],
+  [-26.0, -37.0],
+  [56.0, 40.0],
 ];
 const OHM_SOURCE_PREFIX = "ohm-src-";
 const OHM_LAYER_PREFIX = "ohm-lyr-";
