@@ -33,7 +33,7 @@ function SourcesContent() {
 
         <div className="grid gap-3 md:grid-cols-2">
           <article className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4 shadow-[0_16px_45px_rgba(0,0,0,0.16)]">
-            <h3 className="text-lg font-black text-[#f6efe6]">IPC Senegal (ipc-sen)</h3>
+            <h3 className="text-lg font-black text-[#f6efe6]">IPC Data</h3>
             <dl className="mt-3 space-y-3 text-sm leading-6">
               <div>
                 <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#85b8e5]">Source</dt>

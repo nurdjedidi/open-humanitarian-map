@@ -192,7 +192,7 @@ export const messages = {
       aboutBody2:
         "The core idea is to combine IPC, population and field context datasets into a clear, fast and actionable geographic reading.",
       aboutBody3:
-        "The current version focuses on Senegal, with a structure designed to scale to other countries and dataset types.",
+        "The current version focuses on Africa, with a structure designed to scale to other countries and dataset types.",
       sourcesTitle: "Sources and licenses",
       sourcesIntro:
         "Visible layers in the map rely on humanitarian and cartographic sources with explicit attribution.",

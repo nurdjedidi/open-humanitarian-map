@@ -32,7 +32,7 @@ export function OverlayHeader({
               {t("common.brandFull")}
             </p>
             <h1 className="truncate text-sm font-extrabold text-[#f4f8fc] md:text-lg">
-              West Africa priority map
+              {t("demo.mainTitle")}
             </h1>
           </div>
         </div>
