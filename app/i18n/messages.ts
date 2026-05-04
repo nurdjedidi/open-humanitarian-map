@@ -21,7 +21,7 @@ export const messages = {
     },
     demo: {
       title: "OHM Carte",
-      mainTitle: "Carte des priorités Afrique de l'Ouest",
+      mainTitle: "Carte de priorité Afrique",
       layers: "Couches",
       roads: "Routes principales",
       water: "Points d’eau",
@@ -49,7 +49,7 @@ export const messages = {
       mapTooltipLineRegion: "{score} | Phase IPC {phase}",
       mapTooltipLineRegion2: "P3+: {p3} | Pop: {population}",
       defaultReason: "Analyse disponible dans la fiche région.",
-      defaultMapTitle: "Sénégal",
+      defaultMapTitle: "Afrique",
       navAbout: "About",
       navSources: "Sources",
       navContact: "Contact",
@@ -88,7 +88,7 @@ export const messages = {
       aboutBody2:
         "Le cœur du produit est de croiser des données IPC, population et contexte terrain pour produire une lecture géographique claire, rapide et exploitable.",
       aboutBody3:
-        "La version actuelle met en avant le Sénégal, avec une logique pensée pour une montée en charge vers d’autres pays et jeux de données.",
+        "La version actuelle met en avant l'Afrique, avec une logique pensée pour une montée en charge vers d’autres pays et jeux de données.",
       sourcesTitle: "Sources et licences",
       sourcesIntro:
         "Les couches visibles dans la carte reposent sur des sources cartographiques et humanitaires explicitement attribuées.",
@@ -125,7 +125,7 @@ export const messages = {
     },
     demo: {
       title: "OHM map",
-      mainTitle: "West Africa priority map",
+      mainTitle: "Africa priority map",
       layers: "Layers",
       roads: "Main roads",
       water: "Water points",
@@ -153,7 +153,7 @@ export const messages = {
       mapTooltipLineRegion: "{score} | IPC phase {phase}",
       mapTooltipLineRegion2: "P3+: {p3} | Pop: {population}",
       defaultReason: "Analysis available in the region sheet.",
-      defaultMapTitle: "Senegal",
+      defaultMapTitle: "Africa",
       navAbout: "About",
       navSources: "Sources",
       navContact: "Contact",
